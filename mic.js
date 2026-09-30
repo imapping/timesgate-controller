@@ -224,13 +224,16 @@ function setDevice(device) {
 // DirectShow device, and on a Pi "default" is usually the built-in audio rather than the USB mic.
 // A saved device this computer doesn't have (e.g. settings copied from Windows to a Pi) is ignored.
 let autoDevice = null, foreignDevice = false;
-devices().then(list => {
+const pickDevice = () => devices().then(list => {
   if (!list.length) return;
   foreignDevice = !!conf.device && !list.some(d => d.id === conf.device);
   const mics = WIN ? list : list.filter(d => d.id.startsWith('plughw:'));  // plughw converts the rate and channels
   const pick = mics.find(d => /yeti|microphone|mic|usb/i.test(d.name)) || (WIN ? list[0] : null);
-  if (pick) autoDevice = pick.id;
+  autoDevice = pick ? pick.id : WIN ? autoDevice : null;
 });
+pickDevice();
+// On Linux, listing devices is cheap: look again now and then, for a mic plugged in after startup.
+if (!WIN) setInterval(pickDevice, 30 * 1000).unref();
 const device = () => (conf.device && !foreignDevice ? conf.device : autoDevice);
 
 module.exports = { listen, record, status, devices, setDevice, RATE, makeAnalyser, HOP };
