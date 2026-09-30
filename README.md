@@ -121,26 +121,8 @@ the page doesn't need to stay open, but the controller does.
 
   Run `Start-ScheduledTask "TimesGate Controller"` to start it straight away. To remove it later,
   run `Unregister-ScheduledTask "TimesGate Controller"`.
-- **Linux or Raspberry Pi:** run it as a systemd service. Create
-  `/etc/systemd/system/timesgate.service` (change the user and folder):
-
-  ```ini
-  [Unit]
-  Description=TimesGate controller
-  After=network-online.target
-  Wants=network-online.target
-
-  [Service]
-  User=pi
-  WorkingDirectory=/home/pi/timesgate-controller
-  ExecStart=/usr/bin/node server.js
-  Restart=always
-
-  [Install]
-  WantedBy=multi-user.target
-  ```
-
-  Then run `sudo systemctl enable --now timesgate`.
+- **Raspberry Pi or other Linux:** use the installer, which sets it up as a service. See
+  [Running on a Raspberry Pi](#running-on-a-raspberry-pi).
 
 ### 6. Set up the plugins you want
 
@@ -151,7 +133,7 @@ all work without setup except:
   [Spotify developer dashboard](https://developer.spotify.com/dashboard), tick **Web API**, and add
   the redirect URI `http://127.0.0.1:8080/api/spotify/callback`. Paste its Client ID into the
   Spotify card and click Connect. Do this on the computer running the controller, because Spotify
-  only accepts that `127.0.0.1` address.
+  only accepts that `127.0.0.1` address (on a Pi, see [below](#running-on-a-raspberry-pi)).
 - **Vinyl:** get an API token from [AudD](https://dashboard.audd.io/) and paste it into the Vinyl
   card (on the computer running the controller). Set a monthly limit to match your plan.
 - **Weather:** search for your town in the Weather card.
@@ -186,6 +168,77 @@ Optional extras:
   come in many cheap arcade DIY kits. Other USB gamepads and joysticks should also work: the
   controller reads the raw USB input, so any joystick, D-pad or button just appears on the page when
   pressed, with no setup file to write. It works through `node-hid`, which `npm install` installs.
+
+## Running on a Raspberry Pi
+
+A Raspberry Pi 4 (or a Pi 400, or a Zero 2 W) makes a quiet, always-on home for the controller,
+with the USB microphone and button box plugged into it. It has no screen: you use the page from
+your PC or phone.
+
+1. **Prepare the SD card** with [Raspberry Pi Imager](https://www.raspberrypi.com/software/):
+   - Choose **Raspberry Pi OS Lite (64-bit)**, under *Raspberry Pi OS (other)*.
+   - Under **Edit settings**, set the hostname (e.g. `timesgate`), a username and password, and
+     your Wi-Fi. Under **Services**, turn on **SSH**.
+2. **Start the Pi** with the microphone and button box plugged in. Give it a fixed address (a
+   DHCP reservation) in your router.
+3. **Connect to it over SSH** from your PC, using your username:
+
+   ```bash
+   ssh yourname@timesgate.local
+   ```
+
+4. **Run the installer** on the Pi:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/imapping/timesgate-controller/main/scripts/install-pi.sh | bash
+   ```
+
+   It installs Node.js, arecord and fonts, sets the controller up as a service that starts at
+   boot, and lets it read the button box. It also lets the PC you ran it from change setup and tokens
+   (saved in `data/trusted.json`), since nobody sits at the Pi itself. At the end it shows the
+   page's address, e.g. `http://timesgate.local:8080`.
+
+   To update later, run the same command again. Your settings are kept.
+
+**Moving from a PC:** stop the controller on the PC so the two don't both drive the Times Gates.
+For the Windows task from step 5, that's:
+
+```powershell
+Stop-ScheduledTask "TimesGate Controller"; Disable-ScheduledTask "TimesGate Controller"
+```
+
+Then copy your settings across from the PC's controller folder, and restart the service on the Pi:
+
+```powershell
+scp -r data engine.json yourname@timesgate.local:timesgate-controller/
+```
+
+```bash
+ssh yourname@timesgate.local sudo systemctl restart timesgate
+```
+
+This keeps your Times Gates, plugin settings, Spotify login, tokens and button assignments. The
+microphone is picked again automatically.
+
+**Claude status from a PC:** point Claude Code's hooks at the Pi instead of `127.0.0.1`, using its
+address in each hook's `url` (e.g. `http://192.168.1.128:8080/api/claude/hook`). The PC must be
+listed in the Pi's `data/trusted.json`, which it is if you ran the installer from it. For the status
+line, keep `claude-statusline.js` on the PC and tell it where the Pi is, in `~/.claude/settings.json`:
+
+```json
+{ "env": { "TIMESGATE_URL": "http://192.168.1.128:8080" } }
+```
+
+**Logging in to Spotify on a Pi:** Spotify only sends the login back to `127.0.0.1`. Copying your
+settings from a PC keeps an existing login. For a new one, connect with a tunnel so the PC's
+`127.0.0.1:8080` reaches the Pi, then open `http://127.0.0.1:8080` on the PC and log in there:
+
+```bash
+ssh -L 8080:127.0.0.1:8080 yourname@timesgate.local
+```
+
+**Useful commands on the Pi:** `journalctl -u timesgate -f` shows the log, and
+`sudo systemctl restart timesgate` restarts it.
 
 ## Writing plugins
 

@@ -7,9 +7,20 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
+const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const mic = require('./mic');
 globalThis.makeCanvas = (w, h) => createCanvas(w, h);
+
+// Screens use `system-ui, "Segoe UI", sans-serif`. Linux (a Raspberry Pi) has no Segoe UI, so use Noto
+// Sans (installed by scripts/install-pi.sh), or else DejaVu Sans, under those names.
+if (process.platform !== 'win32' && !GlobalFonts.has('Segoe UI')) {
+  for (const dir of ['/usr/share/fonts/truetype/noto', '/usr/share/fonts/truetype/dejavu']) {
+    let files = [];
+    try { files = fs.readdirSync(dir).filter(f => /^(NotoSans|DejaVuSans)(-(Regular|Medium|SemiBold|Bold|ExtraBold|Black))?\.ttf$/.test(f)); } catch {}
+    for (const f of files) for (const name of ['Segoe UI', 'system-ui']) GlobalFonts.registerFromPath(path.join(dir, f), name);
+    if (files.length) break;
+  }
+}
 
 const PLUGIN_DIR = path.join(__dirname, 'plugins');
 const DATA_DIR = path.join(__dirname, 'data');

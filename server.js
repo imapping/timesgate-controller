@@ -70,7 +70,18 @@ async function relay(url, method, body) {
   try { return JSON.parse(text); } catch { return { raw: text }; }
 }
 
-const isLoopback = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+// Requests from this computer count as local: allowed to change setup, tokens and plugins. So do the
+// addresses in data/trusted.json { "hosts": ["192.168.1.20"] }, e.g. your PC when the controller runs
+// on a Raspberry Pi with no screen (scripts/install-pi.sh adds the computer it's run from).
+const TRUSTED_FILE = path.join(__dirname, 'data', 'trusted.json');
+let trusted = [];
+const loadTrusted = () => { try { trusted = JSON.parse(fs.readFileSync(TRUSTED_FILE, 'utf8')).hosts || []; } catch { trusted = []; } };
+loadTrusted();
+fs.watchFile(TRUSTED_FILE, { interval: 5000 }, loadTrusted);
+const isLoopback = req => {
+  const a = String(req.socket.remoteAddress).replace(/^::ffff:/, '');
+  return a === '127.0.0.1' || a === '::1' || trusted.includes(a);
+};
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');

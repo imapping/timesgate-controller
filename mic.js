@@ -129,9 +129,9 @@ const recorders = new Set();  // { chunks, need, got, resolve }
 function start() {
   if (proc || restartTimer) return;
   let cmd;
-  try { cmd = captureCommand(conf.device || (WIN ? defaultWinDevice : null)); }
+  try { cmd = captureCommand(device()); }
   catch (e) { error = e.message; return; }
-  if (WIN && !conf.device && !defaultWinDevice) { error = 'Choose a microphone first'; return; }
+  if (WIN && !device()) { error = 'Choose a microphone first'; return; }
   error = null; analyse = makeAnalyser(); pending = Buffer.alloc(0);
   const p = proc = spawn(cmd[0], cmd[1], { windowsHide: true });
   log('Listening.');
@@ -208,23 +208,29 @@ function record(ms) {
 }
 
 function status() {
-  return { running: !!proc, error, device: conf.device || defaultWinDevice || 'default', users: [...new Set([...listeners.values()].map(l => l.who))],
+  return { running: !!proc, error, device: device() || 'default', users: [...new Set([...listeners.values()].map(l => l.who))],
     recording: recorders.size > 0, level: last.level, db: last.db, bpm: last.bpm,
     tool: findArecord() ? 'arecord' : findFfmpeg() ? 'ffmpeg' : null };
 }
 
 function setDevice(device) {
-  conf.device = device ? String(device).slice(0, 200) : null; saveConf();
+  conf.device = device ? String(device).slice(0, 200) : null; foreignDevice = false; saveConf();
   if (proc) { const p = proc; proc = null; p.kill(); }
   clearTimeout(restartTimer); restartTimer = null;
   if (inUse()) start();  // carry on with the new device
 }
 
-// On Windows there's no "default" DirectShow device, so pick one that looks like a microphone.
-let defaultWinDevice = null;
-if (WIN && !conf.device) devices().then(list => {
-  const pick = list.find(d => /microphone|mic|yeti/i.test(d.name)) || list[0];
-  if (pick) defaultWinDevice = pick.id;
+// Without a chosen device, pick one that looks like a microphone: on Windows there's no "default"
+// DirectShow device, and on a Pi "default" is usually the built-in audio rather than the USB mic.
+// A saved device this computer doesn't have (e.g. settings copied from Windows to a Pi) is ignored.
+let autoDevice = null, foreignDevice = false;
+devices().then(list => {
+  if (!list.length) return;
+  foreignDevice = !!conf.device && !list.some(d => d.id === conf.device);
+  const mics = WIN ? list : list.filter(d => d.id.startsWith('plughw:'));  // plughw converts the rate and channels
+  const pick = mics.find(d => /yeti|microphone|mic|usb/i.test(d.name)) || (WIN ? list[0] : null);
+  if (pick) autoDevice = pick.id;
 });
+const device = () => (conf.device && !foreignDevice ? conf.device : autoDevice);
 
 module.exports = { listen, record, status, devices, setDevice, RATE, makeAnalyser, HOP };

@@ -9,4 +9,5 @@ It can also beep, turn the edge light rainbow for 2 minutes, or both, when a ses
 question or needs permission.
 
 Setup: Claude Code hooks POST to `http://127.0.0.1:8080/api/claude/hook`, and the status line runs
-`claude-statusline.js`, which POSTs usage to `/api/claude/usage`. Both are accepted from this PC only.
+`claude-statusline.js`, which POSTs usage to `/api/claude/usage`. Both are accepted only from the computer running the controller, or one listed in
+`data/trusted.json` (e.g. your PC, when the controller runs on a Raspberry Pi).

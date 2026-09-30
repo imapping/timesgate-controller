@@ -147,7 +147,7 @@ Keys are `'<METHOD> <path>'`, served at `/api/<id><path>`. Handlers get one obje
 | `body` | Parsed JSON body (`{}` if empty, `null` if not JSON) |
 | `raw` | The body as a Buffer (for non-JSON uploads) |
 | `query` | `URLSearchParams` of the query string |
-| `local` | `true` if the request came from this PC (not the phone / LAN) |
+| `local` | `true` if the request came from the computer running the controller, or one listed in `data/trusted.json` (not the phone or others on the LAN) |
 | `req`, `res`, `url` | Node's request/response, for redirects, images, streaming |
 
 Return a value to reply with it as JSON. Return nothing to reply `204 No Content`. Or write to

@@ -17,7 +17,9 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
 - `public/`: the page. `index.html` holds the core controls; `plugins.js` holds the `TG` page API
   and the plugin loader.
 - `plugins/<id>/`: features as plugins (claude, spotify, vinyl, weather, visualizer, github).
-- `data/`: plugin settings and secrets. Never serve these.
+- `data/`: plugin settings and secrets. Never serve these. `data/trusted.json` lists other computers
+  treated as local (allowed to change setup and tokens), for a Pi with no screen.
+- `scripts/install-pi.sh`: installs it on a Raspberry Pi as a systemd service (run over SSH from the PC).
 - `examples/hello/`: a minimal plugin to copy.
 
 **To add a feature that shows something on the screens, write a plugin. See PLUGINS.md.**
