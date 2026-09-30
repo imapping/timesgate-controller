@@ -43,6 +43,12 @@ and a rainbow edge light:
 
 ![The Vinyl card, with recently identified tracks](docs/screenshots/vinyl.png)
 
+While it listens, the card shows the sound live: a scrolling waveform of the last 9 seconds and
+a trace of the sound right now. The clip sent to AudD shows in orange. This is only on the page,
+not the Times Gate.
+
+![The Vinyl card showing a live waveform while listening to a record](docs/screenshots/vinyl-waveform.png)
+
 **Button box:** give each button a press and a hold action.
 
 ![Buttons card mapping joystick and buttons to actions](docs/screenshots/buttons.png)
