@@ -25,6 +25,16 @@ The five screens as the page previews them. **Weather:**
 
 ![Claude status on the five screens](docs/screenshots/screens-claude.png)
 
+**GitHub:** stars, visitors and clones for your repositories, activity, and your contribution
+graph (shown here with example numbers):
+
+![GitHub: stars, visitors, clones, activity and contribution graph](docs/screenshots/screens-github.png)
+
+When a repository gets a new star, fork, issue or pull request, it celebrates with confetti, a beep
+and a rainbow edge light:
+
+![GitHub celebrating a new star](docs/screenshots/screens-github-party.png)
+
 **Music visualizer:** dances in time with the beat it hears through the microphone.
 
 ![Music visualizer bars](docs/screenshots/screens-visualizer.png)
