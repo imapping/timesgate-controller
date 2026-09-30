@@ -6,7 +6,8 @@ working with the page closed.
 
 - Pictures, animations, banners, effects, scenes, a timer, a scoreboard and light shows
 - **Plugins** for everything that shows live data. The built-in ones are Weather, Spotify
-  now playing, Claude Code status, a music visualizer and vinyl record recognition.
+  now playing, Claude Code status, GitHub repository stats, a music visualizer and vinyl record
+  recognition.
   They can be installed or removed from the page.
 - A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD)
 - A **USB button box** (an arcade joystick kit) or game controller: map each button to any action
@@ -144,6 +145,8 @@ all work without setup except:
 - **Vinyl:** get an API token from [AudD](https://dashboard.audd.io/) and paste it into the Vinyl
   card (on the computer running the controller). Set a monthly limit to match your plan.
 - **Weather:** search for your town in the Weather card.
+- **GitHub:** add your repositories in the GitHub card. For visitors and clones, add a
+  fine-grained token with **Administration: Read-only** (see the plugin's Read me).
 - **Claude status:** tell [Claude Code](https://claude.com/claude-code) to send its events to the
   controller. Add to `~/.claude/settings.json` on the same computer, one entry for each of
   `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Notification`, `Stop`,
@@ -190,6 +193,8 @@ Some plugins use online services. Each user sets up their own account or key; no
   Spotify's developer terms.
 - **Vinyl:** uses [AudD](https://audd.io/) music recognition, a paid service with your own API token.
   The plugin only listens on request and has a monthly cap.
+- **GitHub:** uses the GitHub API. It works without a token; an optional read-only token of your
+  own adds visitors, clones and your contribution graph.
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.
 
 Settings, logins and tokens are saved in `data/`, which is never served by the web server and is

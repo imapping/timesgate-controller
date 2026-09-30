@@ -16,7 +16,7 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
 - `buttons.js`: reads the USB button box through node-hid, and runs the action assigned to each button.
 - `public/`: the page. `index.html` holds the core controls; `plugins.js` holds the `TG` page API
   and the plugin loader.
-- `plugins/<id>/`: features as plugins (claude, spotify, vinyl, weather, visualizer).
+- `plugins/<id>/`: features as plugins (claude, spotify, vinyl, weather, visualizer, github).
 - `data/`: plugin settings and secrets. Never serve these.
 - `examples/hello/`: a minimal plugin to copy.
 

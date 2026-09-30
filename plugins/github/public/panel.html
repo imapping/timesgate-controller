@@ -1,0 +1,34 @@
+<div class="row">
+  <input type="text" id="ghAdd" class="grow" placeholder="owner/repository or GitHub link" style="max-width:320px" spellcheck="false">
+  <button id="ghAddBtn">Add repository</button>
+  <button id="ghCheck" title="Check GitHub now instead of waiting for the next 10-minute check">Check now</button>
+</div>
+<div id="ghStats"></div>
+<div id="ghSetup">
+  <p class="hint" style="margin:8px 0 6px">Without a token it shows the public numbers. For <b>visitors, clones and your contribution
+    graph</b>, create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>
+    with access to your repositories and <b>Administration: Read-only</b> (under Repository permissions), then paste it here on the PC:</p>
+  <div class="row">
+    <input type="password" id="ghToken" placeholder="GitHub token" style="width:300px" autocomplete="off" spellcheck="false">
+    <button id="ghSaveToken">Save token</button>
+  </div>
+</div>
+<div class="row" id="ghTokenRow" style="display:none">
+  <span id="ghTokenInfo" class="hint" style="margin:0"></span>
+  <button id="ghForget" title="Remove the token from this controller">Remove token</button>
+</div>
+<div class="row">
+  <label>Celebrate new</label>
+  <label><input type="checkbox" id="ghEvStars"> stars</label>
+  <label><input type="checkbox" id="ghEvForks"> forks</label>
+  <label><input type="checkbox" id="ghEvIssues"> issues &amp; PRs</label>
+  <label style="margin-left:10px">with</label>
+  <label><input type="checkbox" id="ghBeep"> a beep</label>
+  <label><input type="checkbox" id="ghRainbow"> the rainbow edge</label>
+  <button id="ghTest" title="Try the celebration now">Test</button>
+</div>
+<div data-tg-controls></div>
+<div id="ghRecent"></div>
+<p class="hint">Screens: the repository and its stars · visitors · clones (both for the last 14 days) · forks, watchers, issues, pull requests and the top referrer · your contribution graph.
+  It checks every 10 minutes, even when something else is on the screens, so it can celebrate: confetti on screen 1 (when GitHub is showing), a beep and a rainbow edge on the Times Gates with alerts on.
+  With several repositories, each gets a minute on the screens. <span id="ghNote"></span></p>

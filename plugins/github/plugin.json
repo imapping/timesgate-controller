@@ -1,0 +1,11 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "version": "1.0.0",
+  "description": "Stars, visitors, clones and activity for your GitHub repositories, your contribution graph, and a celebration for new stars, forks, issues and pull requests.",
+  "author": "TimesGate",
+  "order": 40,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"],
+  "liveLabel": "Keep it updated (checks every 10 min)"
+}
