@@ -9,7 +9,7 @@ working with the page closed.
   now playing, Claude Code status, a music visualizer and vinyl record recognition.
   They can be installed or removed from the page.
 - A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD)
-- A **USB button box** or game controller: map each button to any action
+- A **USB button box** (an arcade joystick kit) or game controller: map each button to any action
 - **Several Times Gates**, each with its own screens and settings
 
 ![The controller page, showing the Weather plugin on the five screens](docs/screenshots/overview.png)
@@ -60,7 +60,11 @@ reservation in your router) so it's always found in the same place.
 
 Optional extras:
 - **Microphone:** [ffmpeg](https://ffmpeg.org/) on Windows, or `arecord` (alsa-utils) on Linux.
-- **Button box:** works through `node-hid`, installed by `npm install`.
+- **Button box:** set up and tested with a common **USB arcade kit**: a joystick and 10 buttons on a
+  DragonRise "zero delay" USB encoder (USB ID `0079:0006`, shown as "Generic USB Joystick"). These
+  come in many cheap arcade DIY kits. Other USB gamepads and joysticks should also work: the
+  controller reads the raw USB input, so any joystick, D-pad or button just appears on the page when
+  pressed, with no setup file to write. It works through `node-hid`, which `npm install` installs.
 
 ## Writing plugins
 
