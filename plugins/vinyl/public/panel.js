@@ -52,7 +52,7 @@
   p.onState(apply);
 
   // Live waveform while it's listening or identifying: only on this page, never on the Times Gate.
-  // The server streams peaks (one per 23 ms) and the latest 23 ms of sound (/api/vinyl/wave).
+  // The server streams peaks (one per 23 ms) and the shape of the last 70 ms (/api/vinyl/wave).
   const WAVE_LEN = 400;  // about 9 seconds of peaks
   let es = null, hist = [];
   function syncWave() {
@@ -89,19 +89,28 @@
       g.fillRect(x, mid - a, Math.max(r, bw - (bw > 3 ? r : 0)), a * 2);
     });
 
-    // The sound right now, scaled up so quiet sound is visible.
+    // The last 70 ms, scaled up so quiet sound is visible: each slice's range as a soft band, and
+    // a smooth curve through the averages.
     const s = $p('#vnScope'), q = s.getContext('2d');
     fitCanvas(s);
-    q.clearRect(0, 0, s.width, s.height);
-    if (m.scope.length) {
-      const max = Math.max(6, ...m.scope.map(Math.abs));
-      q.strokeStyle = m.phase === 'identifying' ? accent : ink; q.lineWidth = 1.5 * r; q.lineJoin = 'round';
+    const SW = s.width, SH = s.height, n = (m.avg || []).length;
+    q.clearRect(0, 0, SW, SH);
+    if (n > 1) {
+      const color = m.phase === 'identifying' ? accent : ink;
+      const max = Math.max(6, ...m.hi, ...m.lo.map(v => -v));
+      const X = i => i / (n - 1) * SW, Y = v => SH / 2 - v / max * (SH / 2 - 3 * r);
       q.beginPath();
-      m.scope.forEach((v, i) => {
-        const x = i / (m.scope.length - 1) * s.width, y = s.height / 2 - v / max * (s.height / 2 - 3 * r);
-        i ? q.lineTo(x, y) : q.moveTo(x, y);
-      });
-      q.stroke();
+      m.hi.forEach((v, i) => (i ? q.lineTo(X(i), Y(v)) : q.moveTo(X(i), Y(v))));
+      for (let i = n - 1; i >= 0; i--) q.lineTo(X(i), Y(m.lo[i]));
+      q.closePath();
+      q.globalAlpha = 0.18; q.fillStyle = color; q.fill(); q.globalAlpha = 1;
+      q.beginPath(); q.moveTo(X(0), Y(m.avg[0]));
+      for (let i = 1; i < n - 1; i++) {  // curve through the midpoints
+        const xm = (X(i) + X(i + 1)) / 2, ym = (Y(m.avg[i]) + Y(m.avg[i + 1])) / 2;
+        q.quadraticCurveTo(X(i), Y(m.avg[i]), xm, ym);
+      }
+      q.lineTo(X(n - 1), Y(m.avg[n - 1]));
+      q.strokeStyle = color; q.lineWidth = 2 * r; q.lineJoin = q.lineCap = 'round'; q.stroke();
     }
     $p('#vnWaveInfo').textContent = m.db > -98
       ? `${m.phase === 'identifying' ? 'Recording a clip for AudD (orange)' : 'Listening'} · ${m.db} dB`

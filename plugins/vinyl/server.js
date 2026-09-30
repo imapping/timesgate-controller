@@ -161,28 +161,38 @@ module.exports = tg => {
 
   // Waveforms for the page while it's listening or identifying (never sent to the Times Gate).
   // GET /wave streams server-sent events, about 14 a second:
-  //   { peaks: [0..100, one per 23 ms], scope: [-100..100 × 128, the latest 23 ms], phase, db }
+  //   { peaks: [0..100, one per 23 ms], lo, hi, avg: [-100..100 × 128], phase, db }
+  // lo/hi/avg describe the last 70 ms in 128 slices: each slice's lowest, highest and average
+  // sample, so the page can draw the full range as a band and a smooth line through the middle.
   // The mic is only tapped while a page is watching and Vinyl is listening or identifying.
+  const WAVE_HOPS = 3, SLICES = 128;
   const waveClients = new Set();
-  let stopWave = null, peaks = [], scope = [], waveDb = -99, pingTick = 0;
+  let stopWave = null, peaks = [], win = null, waveDb = -99, pingTick = 0;
   function onWave(f) {
+    const n = f.samples.length;
+    win ||= new Int16Array(n * WAVE_HOPS);
+    win.set(f.samples, peaks.length * n);   // f.samples is only valid during this call
     let peak = 0;
     for (const v of f.samples) { const a = v < 0 ? -v : v; if (a > peak) peak = a; }
     peaks.push(Math.round(peak / 327.68));
-    scope = Array.from({ length: 128 }, (_, i) => Math.round(f.samples[Math.floor(i * f.samples.length / 128)] / 327.68));
     waveDb = f.db;
-    if (peaks.length >= 3) {
-      const msg = `data: ${JSON.stringify({ peaks, scope, phase, db: waveDb })}\n\n`;
-      peaks = [];
-      for (const res of waveClients) res.write(msg);
+    if (peaks.length < WAVE_HOPS) return;
+    const lo = [], hi = [], avg = [], per = win.length / SLICES;
+    for (let i = 0; i < SLICES; i++) {
+      let mn = 32767, mx = -32768, sum = 0;
+      for (let j = Math.floor(i * per), end = Math.floor((i + 1) * per); j < end; j++) { const v = win[j]; if (v < mn) mn = v; if (v > mx) mx = v; sum += v; }
+      lo.push(Math.round(mn / 327.68)); hi.push(Math.round(mx / 327.68)); avg.push(Math.round(sum / Math.max(1, Math.floor((i + 1) * per) - Math.floor(i * per)) / 327.68));
     }
+    const msg = `data: ${JSON.stringify({ peaks, lo, hi, avg, phase, db: waveDb })}\n\n`;
+    peaks = [];
+    for (const res of waveClients) res.write(msg);
   }
   function syncWave() {
     const want = waveClients.size > 0 && (active || phase === 'identifying');
     if (want && !stopWave) stopWave = tg.mic.listen(onWave, { samples: true });
     else if (!want && stopWave) {
       stopWave(); stopWave = null; peaks = [];
-      for (const res of waveClients) res.write(`data: ${JSON.stringify({ peaks: [], scope: [], phase, db: -99 })}\n\n`);
+      for (const res of waveClients) res.write(`data: ${JSON.stringify({ peaks: [], lo: [], hi: [], avg: [], phase, db: -99 })}\n\n`);
     }
   }
   tg.every(1000, () => {
