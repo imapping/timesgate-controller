@@ -198,6 +198,18 @@ your PC or phone.
    (saved in `data/trusted.json`), since nobody sits at the Pi itself. At the end it shows the
    page's address, e.g. `http://timesgate.local:8080`.
 
+   When it's done, it ends like this:
+
+   ```text
+   == 6/6 Checking it started
+
+   The TimesGate controller is running:  http://192.168.1.128:8080   (or http://timesgate.local:8080)
+
+   Moving from a PC? Stop the controller there, copy its data/ folder and engine.json into
+   /home/yourname/timesgate-controller, then run:  sudo systemctl restart timesgate
+   Logs:  journalctl -u timesgate -f
+   ```
+
    To update later, run the same command again. Your settings are kept.
 
 **Moving from a PC:** stop the controller on the PC so the two don't both drive the Times Gates.
@@ -217,8 +229,11 @@ scp -r data engine.json yourname@timesgate.local:timesgate-controller/
 ssh yourname@timesgate.local sudo systemctl restart timesgate
 ```
 
-This keeps your Times Gates, plugin settings, Spotify login, tokens and button assignments. The
-microphone is picked again automatically.
+This keeps your Times Gates, plugin settings, Spotify login, tokens and button assignments. Button
+assignments made on Windows work unchanged on the Pi. The Pi finds a USB microphone by itself (or
+choose it in the Microphone card):
+
+<img src="docs/screenshots/pi-mic.png" alt="The Microphone card on a Raspberry Pi, using a Yeti USB microphone" width="360">
 
 **Claude status from a PC:** point Claude Code's hooks at the Pi instead of `127.0.0.1`, using its
 address in each hook's `url` (e.g. `http://192.168.1.128:8080/api/claude/hook`). The PC must be
