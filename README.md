@@ -46,17 +46,125 @@ It works on a phone too:
 
 ## Getting started
 
-You need [Node.js](https://nodejs.org/) 18 or newer, on a PC or a Raspberry Pi on the same network
-as the Times Gate.
+### 1. What you need
+
+- A Divoom Times Gate, already set up on your Wi-Fi with the Divoom app.
+- A computer that stays on, on the same network: a Windows PC, a Mac, Linux, or a Raspberry Pi.
+- [Node.js](https://nodejs.org/) 18 or newer (the LTS download is fine).
+
+### 2. Download it
+
+Either use git:
+
+```bash
+git clone https://github.com/imapping/timesgate-controller.git
+```
+
+or, without git, click the green **Code** button on GitHub, choose **Download ZIP**, and unzip it
+somewhere permanent (for example `C:\TimesGate` or `~/timesgate-controller`).
+
+### 3. Install and start it
+
+Open a terminal in that folder (in Windows Explorer, right-click inside the folder and choose
+**Open in Terminal**), then install the two libraries it uses:
 
 ```bash
 npm install
+```
+
+Then start the controller:
+
+```bash
 npm start
 ```
 
-Open `http://localhost:8080` (or `http://<this computer's IP>:8080` from a phone) and press
-**Find on network** to connect to your Times Gate. Give the Times Gate a fixed address (a DHCP
-reservation in your router) so it's always found in the same place.
+It prints the addresses it's running on. Leave that window open while you use it.
+
+### 4. Connect to your Times Gate
+
+1. Open `http://localhost:8080` in a browser on the same computer.
+2. Press **Find on network** and click your Times Gate. This asks Divoom's servers which Divoom
+   devices share your internet connection; no account is needed. You can also type the Times
+   Gate's IP address (shown in the Divoom app) and press **Connect**.
+3. Give the Times Gate a fixed address (a DHCP reservation in your router), so it's always found
+   in the same place. Do the same for the computer if you'll use it from a phone.
+
+To use it from a phone, open `http://<the computer's IP>:8080`. On Windows, allow Node.js through
+the firewall on **private networks** the first time it asks.
+
+If you have more than one Times Gate, press **Find on network** again and add each one. A picker
+appears at the top of the page.
+
+### 5. Keep it running
+
+Everything (keeping screens updated, alerts, buttons, the timer) runs in the controller itself, so
+the page doesn't need to stay open, but the controller does.
+
+- **Windows:** to start it automatically when you sign in, run this once from the controller's
+  folder in PowerShell (it writes output to `server.log`):
+
+  ```powershell
+  $run = New-ScheduledTaskAction -Execute powershell.exe -WorkingDirectory $PWD -Argument '-NoProfile -WindowStyle Hidden -Command "& node server.js *> server.log"'
+  Register-ScheduledTask -TaskName "TimesGate Controller" -Action $run -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME)
+  ```
+
+  Run `Start-ScheduledTask "TimesGate Controller"` to start it straight away. To remove it later,
+  run `Unregister-ScheduledTask "TimesGate Controller"`.
+- **Linux or Raspberry Pi:** run it as a systemd service. Create
+  `/etc/systemd/system/timesgate.service` (change the user and folder):
+
+  ```ini
+  [Unit]
+  Description=TimesGate controller
+  After=network-online.target
+  Wants=network-online.target
+
+  [Service]
+  User=pi
+  WorkingDirectory=/home/pi/timesgate-controller
+  ExecStart=/usr/bin/node server.js
+  Restart=always
+
+  [Install]
+  WantedBy=multi-user.target
+  ```
+
+  Then run `sudo systemctl enable --now timesgate`.
+
+### 6. Set up the plugins you want
+
+Each plugin has a **Read me** link in the Plugins card on the page, and its own card. They
+all work without setup except:
+
+- **Spotify:** create a free app at the
+  [Spotify developer dashboard](https://developer.spotify.com/dashboard), tick **Web API**, and add
+  the redirect URI `http://127.0.0.1:8080/api/spotify/callback`. Paste its Client ID into the
+  Spotify card and click Connect. Do this on the computer running the controller, because Spotify
+  only accepts that `127.0.0.1` address.
+- **Vinyl:** get an API token from [AudD](https://dashboard.audd.io/) and paste it into the Vinyl
+  card (on the computer running the controller). Set a monthly limit to match your plan.
+- **Weather:** search for your town in the Weather card.
+- **Claude status:** tell [Claude Code](https://claude.com/claude-code) to send its events to the
+  controller. Add to `~/.claude/settings.json` on the same computer, one entry for each of
+  `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Notification`, `Stop`,
+  `StopFailure` and `SessionEnd`:
+
+  ```json
+  {
+    "hooks": {
+      "Notification": [{ "hooks": [{ "type": "http", "url": "http://127.0.0.1:8080/api/claude/hook", "timeout": 2 }] }]
+    },
+    "statusLine": { "type": "command", "command": "node /path/to/timesgate-controller/claude-statusline.js" }
+  }
+  ```
+
+  The status line entry is optional. It adds your session and weekly usage.
+
+### 7. Updating
+
+If you used git, run `git pull`, then `npm install`, and restart the controller. If you downloaded
+a ZIP, download the new one and copy your `data/` folder and `engine.json` into it. Those hold your
+settings, logins and Times Gates.
 
 Optional extras:
 - **Microphone:** [ffmpeg](https://ffmpeg.org/) on Windows, or `arecord` (alsa-utils) on Linux.
