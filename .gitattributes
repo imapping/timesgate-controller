@@ -1,0 +1,5 @@
+# Keep Unix line endings everywhere (the same files run on the Raspberry Pi)
+* text=auto eol=lf
+*.jpg binary
+*.png binary
+*.gif binary

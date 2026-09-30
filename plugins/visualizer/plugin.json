@@ -1,0 +1,11 @@
+{
+  "id": "visualizer",
+  "name": "Music visualizer",
+  "version": "1.0.0",
+  "description": "Listens through the microphone: the lights flash on the beat and the screens dance in time with the tempo.",
+  "author": "TimesGate",
+  "order": 40,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"],
+  "liveLabel": "Screens follow the music"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "hello",
+  "name": "Hello",
+  "version": "1.0.0",
+  "description": "Example plugin: a message spread over the five screens, with a colour that cycles each minute.",
+  "author": "TimesGate",
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"]
+}

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TimesGate Docs</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  :root {
+    --bg: #f4f4f1; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #deded8;
+    --accent: #e0592a; --field: #fafaf7; --code: #f1f0ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --panel: #1f1f1d; --ink: #ecece6; --muted: #9a9a92; --line: #33332f;
+            --accent: #ff7a45; --field: #181816; --code: #161614; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; gap: 16px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--line);
+           background: var(--panel); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 18px; margin: 0; }
+  header h1 span { color: var(--accent); }
+  header a { color: var(--muted); text-decoration: none; font-size: 14px; }
+  header a:hover { color: var(--accent); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; display: grid; gap: 28px; grid-template-columns: 220px minmax(0, 1fr); }
+  nav { position: sticky; top: 76px; align-self: start; max-height: calc(100vh - 100px); overflow: auto; font-size: 14px; }
+  nav b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+  nav a { display: block; color: var(--ink); text-decoration: none; padding: 4px 10px; border-left: 2px solid var(--line); }
+  nav a.sub { padding-left: 22px; color: var(--muted); font-size: 13px; }
+  nav a:hover, nav a.on { border-left-color: var(--accent); color: var(--accent); }
+  article { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 28px 32px; min-width: 0; }
+  article h1 { font-size: 28px; margin: 0 0 12px; letter-spacing: -.01em; }
+  article h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 18px; border-top: 1px solid var(--line); }
+  article h3 { font-size: 17px; margin: 26px 0 8px; }
+  article h2, article h3 { scroll-margin-top: 80px; }
+  article p, article li { max-width: 72ch; }
+  article a { color: var(--accent); }
+  code { font: 13.5px/1.5 ui-monospace, Consolas, monospace; background: var(--code); border: 1px solid var(--line);
+         border-radius: 5px; padding: 1px 5px; }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow: auto; }
+  pre code { background: none; border: 0; padding: 0; font-size: 13px; }
+  .tbl { overflow-x: auto; margin: 12px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  td:first-child { white-space: nowrap; }
+  td:first-child code { white-space: nowrap; }
+  ul, ol { padding-left: 24px; }
+  li { margin: 4px 0; }
+  .muted { color: var(--muted); }
+  @media (max-width: 760px) {
+    .wrap { grid-template-columns: 1fr; }
+    nav { position: static; max-height: none; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+    nav b { margin: 0; cursor: pointer; }
+    nav b::after { content: ' ▾'; }
+    nav:not(.open) a { display: none; }
+    nav.open b { margin-bottom: 8px; }
+    article { padding: 20px 16px; }
+    td:first-child, td:first-child code { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Times<span>Gate</span> Docs</h1>
+  <a href="/#plugins">← Back to the controller</a>
+</header>
+<div class="wrap">
+  <nav id="toc"><b>Contents</b></nav>
+  <article id="doc"><p class="muted">Loading…</p></article>
+</div>
+<script>
+// Shows PLUGINS.md (default) or a plugin's README (?plugin=<id>), converted from Markdown here —
+// a small converter covering what these docs use: headings, paragraphs, lists, code blocks,
+// tables, links, **bold**, *italic* and `code`.
+
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function inline(s) {
+  const codes = [];
+  s = esc(s).replace(/`([^`]+)`/g, (_, c) => `\u0000${codes.push(c) - 1}\u0000`);
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, u) => `<a href="${/^(https?:|\/|#)/.test(u) ? u : '#'}"${/^https?:/.test(u) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`)
+       .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+       .replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>')
+       .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[i]}</code>`);
+}
+const slug = t => t.toLowerCase().replace(/<[^>]+>/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+function markdown(md) {
+  const lines = md.replace(/\r/g, '').split('\n'), out = [], toc = [];
+  let i = 0;
+  const cells = l => l.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(c => c.trim().replace(/\\\|/g, '|'));
+  while (i < lines.length) {
+    const l = lines[i];
+    if (!l.trim()) { i++; continue; }
+    let m;
+    if ((m = /^```(\w*)/.exec(l))) {                       // code block
+      const code = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
+      i++; out.push(`<pre><code>${esc(code.join('\n'))}</code></pre>`); continue;
+    }
+    if ((m = /^(#{1,4})\s+(.*)$/.exec(l))) {               // heading
+      const n = m[1].length, html = inline(m[2]), id = slug(html);
+      if (n === 2 || n === 3) toc.push({ n, id, text: html.replace(/<[^>]+>/g, '') });
+      out.push(`<h${n} id="${id}">${html}</h${n}>`); i++; continue;
+    }
+    if (/^\|/.test(l) && /^\|[\s:|-]+\|?$/.test(lines[i + 1] || '')) {   // table
+      const head = cells(l); i += 2;
+      const rows = [];
+      while (i < lines.length && /^\|/.test(lines[i])) rows.push(cells(lines[i++]));
+      out.push(`<div class="tbl"><table><thead><tr>${head.map(h => `<th>${inline(h)}</th>`).join('')}</tr></thead><tbody>` +
+        rows.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>');
+      continue;
+    }
+    if ((m = /^(\s*)([-*]|\d+\.)\s+/.exec(l))) {            // list (with indented continuation / nested items)
+      const ordered = /\d/.test(m[2]), items = [];
+      while (i < lines.length) {
+        const li = /^([-*]|\d+\.)\s+(.*)$/.exec(lines[i]);
+        if (li) { items.push([li[2]]); i++; continue; }
+        if (items.length && /^\s{2,}\S/.test(lines[i])) { items[items.length - 1].push(lines[i].replace(/^\s{2,3}/, '')); i++; continue; }
+        break;
+      }
+      const tag = ordered ? 'ol' : 'ul';
+      out.push(`<${tag}>${items.map(parts => {
+        const first = [], rest = [];
+        parts.forEach(p => (rest.length || /^\s*([-*]|\d+\.)\s/.test(p) ? rest : first).push(p));
+        return `<li>${inline(first.join(' '))}${rest.length ? markdown(rest.join('\n')).html : ''}</li>`;
+      }).join('')}</${tag}>`);
+      continue;
+    }
+    const para = [];                                         // paragraph
+    while (i < lines.length && lines[i].trim() && !/^(```|#{1,4}\s|\||\s*([-*]|\d+\.)\s)/.test(lines[i])) para.push(lines[i++].trim());
+    if (para.length) out.push(`<p>${inline(para.join(' '))}</p>`);
+    else out.push(`<p>${inline(lines[i++])}</p>`);
+  }
+  return { html: out.join('\n'), toc };
+}
+
+(async () => {
+  const q = new URLSearchParams(location.search), plugin = q.get('plugin');
+  const url = plugin ? `/api/plugins/readme?id=${encodeURIComponent(plugin)}` : '/PLUGINS.md';
+  const r = await fetch(url);
+  const doc = document.getElementById('doc');
+  if (!r.ok) { doc.innerHTML = '<p class="muted">Couldn\'t load that document.</p>'; return; }
+  const { html, toc } = markdown(await r.text());
+  doc.innerHTML = html;
+  const title = doc.querySelector('h1');
+  if (title) document.title = title.textContent + ' · TimesGate';
+  const nav = document.getElementById('toc');
+  nav.querySelector('b').onclick = () => nav.classList.toggle('open');   // folded on phones
+  nav.addEventListener('click', e => { if (e.target.tagName === 'A') nav.classList.remove('open'); });
+  if (plugin) nav.insertAdjacentHTML('beforeend', '<a href="/docs.html">Writing plugins</a>');
+  if (!toc.length) { if (!plugin) nav.hidden = true; }
+  for (const t of toc) {
+    const a = document.createElement('a');
+    a.href = '#' + t.id; a.textContent = t.text; if (t.n === 3) a.className = 'sub';
+    nav.append(a);
+  }
+  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  // highlight the section being read
+  const heads = [...doc.querySelectorAll('h2, h3')], links = [...nav.querySelectorAll('a[href^="#"]')];
+  const spy = () => {
+    let cur = heads[0];
+    for (const h of heads) if (h.getBoundingClientRect().top < 120) cur = h;
+    links.forEach(a => a.classList.toggle('on', cur && a.getAttribute('href') === '#' + cur.id));
+  };
+  addEventListener('scroll', spy, { passive: true }); spy();
+})();
+</script>
+</body>
+</html>

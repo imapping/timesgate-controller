@@ -1,0 +1,16 @@
+<div id="spSetup" hidden>
+  <p class="hint" style="margin-top:0">One-time setup: at <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>
+    create an app (tick <i>Web API</i>) with the Redirect URI <code id="spRedirect"></code>, then paste its Client ID here and click Connect.</p>
+  <div class="row">
+    <input type="text" id="spClientId" placeholder="Client ID" style="width:300px" autocomplete="off" spellcheck="false">
+    <button id="spConnect" class="primary">Connect Spotify</button>
+  </div>
+</div>
+<div id="spMain" hidden>
+  <div id="spNow" class="hint" style="margin-top:0">Loading…</div>
+</div>
+<div data-tg-controls></div>
+<div id="spMore" hidden>
+  <p class="hint">Screen 1 shows the album art, screens 2–3 the song, screen 4 the artist, screen 5 play/pause and the album.
+    <button id="spLogout" class="danger" style="padding:2px 8px;margin-left:6px">Disconnect Spotify</button></p>
+</div>

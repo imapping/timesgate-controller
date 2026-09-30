@@ -1,0 +1,10 @@
+{
+  "id": "vinyl",
+  "name": "Vinyl",
+  "version": "1.0.0",
+  "description": "Identifies the record you're playing (through the microphone, with AudD) and shows its art, title and artist — within a monthly request budget.",
+  "author": "TimesGate",
+  "order": 25,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"]
+}

@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TimesGate Control</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  :root {
+    --bg: #f4f4f1; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #deded8;
+    --accent: #e0592a; --accent-ink: #fff; --screen: #121212; --ok: #2f8f4e; --err: #c0392b;
+    --field: #fafaf7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --panel: #1f1f1d; --ink: #ecece6; --muted: #9a9a92; --line: #33332f;
+            --accent: #ff7a45; --accent-ink: #1a0d06; --screen: #000; --field: #181816; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between;
+           padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+           position: sticky; top: 0; z-index: 5; }
+  h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
+  h1 span { color: var(--accent); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; display: grid; gap: 16px;
+         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  .wide { grid-column: 1 / -1; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  label { font-size: 13px; color: var(--muted); }
+  input, select, textarea, button { font: inherit; color: inherit; }
+  input[type=text], input[type=number], input[type=url], input[type=password], select, textarea {
+    background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+  input[type=number] { width: 72px; }
+  /* scoreboard: a team name over a joined − [score] + control */
+  .tools .row > label:first-child { flex: none; width: 84px; }
+  .tools button { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .tools button:hover { filter: brightness(1.1); }  /* same-width labels so each row's controls start in one column */
+  .team b { flex: none; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; width: 44px; padding-left: 12px; }
+  .stepper { display: flex; align-items: stretch; }
+  .stepper button { width: 34px; padding: 7px 0; font-weight: 700; }
+  .stepper button:first-child { border-radius: 8px 0 0 8px; }
+  .stepper button:last-child { border-radius: 0 8px 8px 0; }
+  .stepper input[type=number] { width: 52px; border-radius: 0; border-left: 0; border-right: 0; text-align: center;
+    font-weight: 700; -moz-appearance: textfield; }
+  .stepper input::-webkit-inner-spin-button, .stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  textarea { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  input[type=color] { width: 40px; height: 34px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--field); }
+  button { background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.danger:hover { border-color: var(--err); color: var(--err); }
+  .grow { flex: 1; }
+  .status { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--ok); } .dot.err { background: var(--err); }
+
+  /* Screen picker — mirrors the device's 5 panels */
+  .gate { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .scr { aspect-ratio: 1; background: var(--screen); border: 3px solid var(--line); border-radius: 10px;
+         color: #777; display: grid; place-items: center; cursor: pointer; position: relative; overflow: hidden;
+         font-weight: 600; font-size: 18px; padding: 0; }
+  .scr canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .scr span { position: relative; text-shadow: 0 0 4px #000; }
+  .scr.sel { border-color: var(--accent); color: #fff; }
+  .gate.nonums .scr span { display: none; }
+  .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+
+  .list { max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .list button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+  .list button:hover { background: var(--field); }
+  .list small { color: var(--muted); }
+  #log { height: 180px; overflow: auto; font: 12px/1.5 ui-monospace, Consolas, monospace; background: var(--field);
+         border: 1px solid var(--line); border-radius: 8px; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+  #log .e { color: var(--err); } #log .o { color: var(--ok); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .scene { display: inline-flex; }
+  .scene button:first-child:not(:last-child) { border-radius: 8px 0 0 8px; }
+  .scene button.x { border-radius: 0 8px 8px 0; border-left: 0; padding: 7px 9px; color: var(--muted); }
+  table.wx { border-collapse: collapse; width: 100%; font-size: 14px; }
+  table.wx td { padding: 5px 8px 5px 0; border-top: 1px solid var(--line); }
+  table.wx td:first-child { font-weight: 600; width: 28%; }
+  .plug { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  .plug:last-child { border-bottom: 0; }
+  .plug .grow { flex: 1 1 240px; min-width: 0; }
+  .plug label { flex: none; white-space: nowrap; }
+  /* not the full-width list buttons */
+  .list .plug button { display: inline-block; width: auto; flex: none; background: var(--field);
+    border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; }
+  .plug .grow small { display: block; color: var(--muted); }
+  .plug .err { color: var(--err); }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line);
+             transition: background .15s; }
+  .btn-row:last-child { border-bottom: 0; }
+  .btn-row.down { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+  .btn-row input[type=text] { width: 150px; font-weight: 600; }
+  .btn-row select { flex: 1 1 170px; min-width: 0; }
+  .btn-row small { color: var(--muted); }
+  .list .btn-row button { display: inline-block; width: auto; border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; background: var(--field); }
+  @media (max-width: 520px) { header { padding: 12px 16px; } .gate { gap: 6px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Times<span>Gate</span> Control</h1>
+  <div class="row" style="margin:0">
+    <input type="text" id="ip" placeholder="Device IP" size="13" aria-label="Device IP">
+    <input type="password" id="token" placeholder="Token (optional)" size="13" aria-label="LocalToken (optional)"
+           title="Optional. Only needed if your firmware rejects commands without a LocalToken">
+    <button id="discover">Find on network</button>
+    <button id="connect" class="primary">Connect</button>
+    <div class="status"><div class="dot" id="dot"></div><span id="statusText">Not connected</span></div>
+  </div>
+</header>
+
+<main>
+  <section class="wide">
+    <h2>Screens</h2>
+    <div class="gate" id="gate"></div>
+    <p class="hint">Tap screens to choose which ones per-screen actions (faces, pictures, GIFs, text) apply to.
+      <button id="selAll" style="padding:2px 8px">All</button> <button id="selNone" style="padding:2px 8px">None</button>
+      <label style="margin-left:8px"><input type="checkbox" id="showNums" checked> Numbers</label></p>
+    <div id="found" class="list" hidden style="margin-top:10px"></div>
+  </section>
+
+  <section class="wide">
+    <h2>Scenes</h2>
+    <div class="chips" id="sceneList"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="sceneSave">Save current setup as a scene</button>
+      <span id="sceneStatus" class="hint" style="margin:0">One click sets brightness, lights and what's on all five screens.</span>
+    </div>
+  </section>
+
+  <!-- Each enabled plugin's panel goes here (see PLUGINS.md). -->
+  <div id="pluginPanels" style="display:contents"></div>
+
+  <section class="wide">
+    <h2>Effects</h2>
+    <div class="chips" id="fxList"></div>
+    <div class="row" style="margin-top:12px">
+      <label>Pixels</label>
+      <select id="fxPixel"><option value="1">Smooth</option><option value="2">Fine</option><option value="4" selected>Chunky</option><option value="8">Retro</option></select>
+      <label>Frames</label><input type="number" id="fxFrames" value="24" min="4" max="40">
+      <label>Speed</label><input type="number" id="fxSpeed" value="80" min="20" step="10" title="Milliseconds per frame"><label>ms</label>
+    </div>
+    <div class="row">
+      <button id="fxPreview">Preview</button><button id="fxStop">Stop preview</button>
+      <button id="fxSend" class="primary">Send to selected screens</button>
+      <span id="fxProgress" class="hint" style="margin:0"></span>
+    </div>
+    <h2 style="margin-top:16px">Light show</h2>
+    <div class="row">
+      <label>BPM</label><input type="number" id="bpm" value="120" min="30" max="240">
+      <select id="showMode"><option value="random">Random colours</option><option value="rainbow">Rainbow sweep</option><option value="pulse">Two-tone (uses light colour)</option></select>
+      <button id="showToggle" class="primary">Start light show</button>
+    </div>
+    <p class="hint">Flashes the backlight in time with the beat (keeps going with this page closed). Pair it with Disco floor for the full effect.</p>
+  </section>
+
+  <section class="wide">
+    <h2>Text banner</h2>
+    <div class="row"><input type="text" id="bnText" class="grow" value="Kia ora! ★" maxlength="200"></div>
+    <div class="row">
+      <select id="bnMode"><option value="scroll">Scroll across all 5 screens</option><option value="split">One word or letter per screen (still)</option></select>
+      <input type="color" id="bnColor" value="#ffcc00" title="Text colour">
+      <label><input type="checkbox" id="bnRainbow" checked> Rainbow</label>
+      <label>Background</label><input type="color" id="bnBg" value="#000000">
+    </div>
+    <div class="row">
+      <label>Pixels</label>
+      <select id="bnPixel"><option value="1">Smooth</option><option value="2" selected>Fine</option><option value="4">Chunky</option><option value="8">Retro</option></select>
+      <label>Speed</label>
+      <select id="bnSpeed"><option value="slow">Slow</option><option value="medium" selected>Medium</option><option value="fast">Fast</option></select>
+      <button id="bnPreview">Preview</button>
+      <button id="bnSend" class="primary">Show on Times Gate</button>
+      <span id="bnInfo" class="hint" style="margin:0"></span>
+    </div>
+    <p class="hint">Animations can have at most 40 frames, so longer messages scroll in bigger jumps. Short messages scroll smoothest.</p>
+  </section>
+
+  <section>
+    <h2>Display</h2>
+    <div class="row">
+      <div class="seg"><button id="scrOn">Screen on</button><button id="scrOff">Screen off</button></div>
+    </div>
+    <div class="row">
+      <label for="bright">Brightness</label>
+      <input type="range" id="bright" min="0" max="100" value="80">
+      <span id="brightVal" style="width:34px;text-align:right">80</span>
+    </div>
+    <div class="row">
+      <label>Independent preset</label>
+      <select id="preset" class="grow"><option value="">— find device first —</option></select>
+    </div>
+    <div class="row">
+      <button id="indepMode">Use independent screens</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Clock faces</h2>
+    <div class="row">
+      <select id="faceSource" class="grow">
+        <option value="whole">Overall display (one face across all 5)</option>
+      </select>
+      <button id="loadFaces">Load</button>
+    </div>
+    <div id="faces" class="list"><div style="padding:10px" class="hint">Press Load to browse Divoom's face catalogue. Per-screen faces go to the selected screens.</div></div>
+    <div class="row" style="margin-top:10px">
+      <label>Clock ID</label><input type="number" id="clockId" style="width:100px">
+      <button id="applyClock">Apply</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Visualizer</h2>
+    <div class="row">
+      <label>Style</label><input type="number" id="eqPos" value="0" min="0">
+      <button id="applyEq">Show on selected screens</button>
+    </div>
+    <p class="hint">Visualizers and per-screen faces apply within the chosen independent preset.</p>
+    <h2 style="margin-top:16px">Ambient light</h2>
+    <div class="row">
+      <select id="lightZone"><option value="2">Backlight</option><option value="1">Edge light</option></select>
+      <input type="color" id="lightColor" value="#ff5500">
+      <button id="lightSolid">Solid</button><button id="lightRainbow">Rainbow</button><button id="lightOff">Off</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Microphone</h2>
+    <div class="row">
+      <select id="micDevice" class="grow" aria-label="Microphone"><option value="">Loading…</option></select>
+      <button id="micTest">Test 10 s</button>
+    </div>
+    <div class="row"><span id="micStatus" class="hint" style="margin:0"></span></div>
+    <p class="hint">Plugins such as the music visualizer listen through this. It only runs while one of them needs it, and nothing is recorded to disk.</p>
+  </section>
+
+  <section>
+    <h2>Picture</h2>
+    <div class="row"><input type="file" id="imgFile" accept="image/*" class="grow"></div>
+    <div class="row"><label><input type="checkbox" id="span"> Stretch one picture across all 5 screens</label></div>
+    <div class="row">
+      <label>Fit</label>
+      <select id="fit"><option value="cover">Fill (crop)</option><option value="contain">Fit (letterbox)</option></select>
+      <button id="sendImg" class="primary">Send picture</button>
+    </div>
+    <p class="hint">Animated GIFs play too (up to 40 frames), including stretched across all 5 screens. Pictures overlay whatever face is showing; pick a face again to go back.</p>
+  </section>
+
+  <section>
+    <h2>Animated GIF</h2>
+    <div class="row"><input type="file" id="gifFile" accept="image/gif" class="grow"></div>
+    <div class="row"><input type="url" id="gifUrl" class="grow" placeholder="…or a GIF URL the device can reach"></div>
+    <div class="row"><button id="sendGif" class="primary">Play on selected screens</button></div>
+    <p class="hint">Uploaded GIFs are hosted by this computer so the device can download them. Use 128×128 (or 64/32/16).</p>
+  </section>
+
+  <section>
+    <h2>Text</h2>
+    <div class="row"><input type="text" id="text" class="grow" value="Hello!" maxlength="500"></div>
+    <div class="row">
+      <input type="color" id="textColor" value="#ffcc00">
+      <label>Font</label><input type="number" id="font" value="4" min="0" max="7" style="width:56px">
+      <label>X</label><input type="number" id="textX" value="4" min="0" max="127" style="width:62px">
+      <label>Y</label><input type="number" id="textY" value="56" min="0" max="127" style="width:62px">
+    </div>
+    <div class="row">
+      <label>Width</label><input type="number" id="textW" value="60" min="17" max="63" style="width:62px" title="17–63 px; longer text scrolls">
+      <select id="align"><option value="1">Left</option><option value="3" selected>Centre</option><option value="5">Right</option></select>
+      <label><input type="checkbox" id="textBg" checked> Black background</label>
+    </div>
+    <div class="row">
+      <button id="sendText" class="primary">Show</button>
+      <button id="clearText">Clear text</button>
+    </div>
+  </section>
+
+  <section class="tools">
+    <h2>Tools</h2>
+    <div class="row"><label>Timer</label></div>
+    <div class="row team"><b></b>
+      <input type="number" id="tHr" value="0" min="0" max="23" style="width:60px">h
+      <input type="number" id="tMin" value="5" min="0" max="59" style="width:60px">m
+      <input type="number" id="tSec" value="0" min="0" max="59" style="width:60px">s
+    </div>
+    <div class="row team"><b></b>
+      <input type="text" id="tLabel" maxlength="40" placeholder="What's it for? (optional)" style="width:240px"
+        title="Flashes red on screen 2 when time's up">
+    </div>
+    <div class="row team"><b></b>
+      <button id="timerStart">Start</button><button id="timerStop">Stop</button>
+      <span id="tInfo" class="hint" style="margin:0"></span>
+    </div>
+    <div class="row">
+      <label>Stopwatch</label>
+      <div class="seg"><button data-sw="1">Start</button><button data-sw="0">Stop</button><button data-sw="2">Reset</button></div>
+    </div>
+    <div class="row"><label>Score</label></div>
+    <div class="row team"><b style="color:#e5484d">Red</b>
+      <div class="stepper"><button data-sc="red" data-d="-1" title="Red −1">−</button><input type="number" id="red" value="0" min="0" max="999"><button data-sc="red" data-d="1" title="Red +1">+</button></div></div>
+    <div class="row team"><b style="color:#4c8dff">Blue</b>
+      <div class="stepper"><button data-sc="blue" data-d="-1" title="Blue −1">−</button><input type="number" id="blue" value="0" min="0" max="999"><button data-sc="blue" data-d="1" title="Blue +1">+</button></div></div>
+    <div class="row team"><b></b>
+      <button id="score">Show</button><button id="scoreReset" title="Set both scores to 0">Reset</button></div>
+    <div class="row">
+      <label>Noise meter</label>
+      <div class="seg"><button data-noise="1">On</button><button data-noise="0">Off</button></div>
+      <button id="beep">Beep</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Settings</h2>
+    <div class="row">
+      <label>Clock</label>
+      <div class="seg"><button data-h24="0">12h</button><button data-h24="1">24h</button></div>
+      <label>Temp</label>
+      <div class="seg"><button data-temp="0">°C</button><button data-temp="1">°F</button></div>
+    </div>
+    <div class="row">
+      <label for="uploadMode">Multi-screen upload</label>
+      <select id="uploadMode">
+        <option value="batch">Batched (screens in sync)</option>
+        <option value="interleave">Interleaved</option>
+        <option value="sequential">One screen at a time</option>
+      </select>
+    </div>
+    <div class="row">
+      <button id="syncTime">Sync time from this computer</button>
+      <button id="readConf">Read settings</button>
+    </div>
+    <div class="row"><button id="reboot" class="danger">Reboot device</button></div>
+  </section>
+
+  <section class="wide" id="buttons">
+    <h2>Buttons</h2>
+    <div class="row"><span id="btStatus" class="hint" style="margin:0"></span><select id="btDevice" hidden aria-label="Controller"></select></div>
+    <div id="btList" class="list" style="max-height:none"></div>
+    <p class="hint">Press a button (or move the joystick) on your button box — it appears here and lights up when pressed. Choose what a press does, and optionally something different when it's held for a second. Works with this page closed.</p>
+  </section>
+
+  <section class="wide" id="plugins">
+    <h2>Plugins</h2>
+    <div id="plList" class="list" style="max-height:none"></div>
+    <h2 style="margin-top:16px">Install a plugin</h2>
+    <div class="row">
+      <input type="url" id="plUrl" class="grow" placeholder="GitHub link, or https:// link to a .zip" style="max-width:420px">
+      <span class="hint" style="margin:0">or</span>
+      <input type="file" id="plZip" accept=".zip,application/zip" style="max-width:230px">
+    </div>
+    <div class="row">
+      <input type="password" id="plPin" inputmode="numeric" placeholder="PIN" size="8" hidden aria-label="Plugin PIN">
+      <button id="plInstall" class="primary">Install</button>
+      <span id="plInfo" class="hint" style="margin:0"></span>
+    </div>
+    <div class="row" id="plPinSet" hidden>
+      <label>PIN for installing from other devices</label>
+      <input type="password" id="plNewPin" inputmode="numeric" placeholder="4–12 digits" size="12">
+      <button id="plSavePin">Save PIN</button><button id="plClearPin">No PIN</button>
+    </div>
+    <p class="hint">A plugin is code that runs on this PC — only install ones you trust. Installing or removing works on the PC itself, or from another device with the PIN.
+      <a href="/docs.html">How to write a plugin →</a></p>
+  </section>
+
+  <section class="wide">
+    <h2>Raw command</h2>
+    <textarea id="raw" rows="3">{ "Command": "Channel/GetIndex" }</textarea>
+    <div class="row" style="margin-top:8px"><button id="sendRaw">Send</button><span class="hint" style="margin:0">Any Divoom API JSON — LocalToken is added for you. Replies show in the log.</span></div>
+    <h2 style="margin-top:14px">Log</h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem('tg.' + k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem('tg.' + k, v); } catch {} },
+};
+
+// ---------- state ----------
+let deviceId = Number(store.get('deviceId')) || null;
+let hardware = Number(store.get('hardware')) || 400;
+let selected = new Set(JSON.parse(store.get('sel') || '[0,1,2,3,4]'));
+// What's currently on the screens and lights, so it can be saved as a scene.
+let lastContent = null, lastLights = null;
+$('ip').value = store.get('ip') || '';
+$('token').value = store.get('token') || '';
+
+// ---------- log ----------
+function log(msg, cls) {
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  $('log').prepend(line);
+}
+function setStatus(state, text) {
+  $('dot').className = 'dot ' + (state || '');
+  $('statusText').textContent = text;
+}
+
+// ---------- engine: what the server keeps running without this page ----------
+// Feature scripts register onEngineState(fn) to reflect it (checkboxes etc.); polled every few seconds
+// so changes made from another browser show up too.
+const engineListeners = [];
+const onEngineState = fn => engineListeners.push(fn);
+function applyEngineState(s) { engineListeners.forEach(fn => { try { fn(s); } catch {} }); }
+async function engineCall(what, body = {}) {
+  const r = await fetch('/api/engine/' + what, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok) { log('Server: ' + (d.error || r.status), 'e'); throw new Error(d.error || 'Server error'); }
+  applyEngineState(d);
+  return d;
+}
+async function pollEngine() { try { applyEngineState(await (await fetch('/api/engine/state')).json()); } catch {} }
+window.addEventListener('load', () => { pollEngine(); setInterval(pollEngine, 3000); });
+
+// ---------- transport ----------
+// Commands go through the server's engine (engine.js), which also switches the noise meter off
+// when other content takes over the screens, and stops what it keeps updated when you send something else.
+async function cmd(payload, quiet) {
+  const ip = $('ip').value.trim();
+  const token = parseInt($('token').value, 10);
+  if (!ip) { log('Enter the device IP first (or use Find on network).', 'e'); throw new Error('no ip'); }
+  // LocalToken is optional: some firmware demands it, but many devices apply commands without one.
+  const body = Number.isFinite(token) ? { ...payload, LocalToken: token } : payload;
+  const short = JSON.stringify(payload, (k, v) => k === 'PicData' ? `<${v.length} chars>` : v);
+  const r = await fetch('/api/device', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, hardware, payload: body }) });
+  const data = await r.json();
+  // "DeviceToken is err" is reported by some firmware even though the command is still applied,
+  // so treat it as a warning rather than a failure.
+  const tokenWarn = data.error_code === 'DeviceToken is err';
+  const ok = r.ok && !data.error && (data.error_code === 0 || data.error_code === undefined || tokenWarn);
+  if (!quiet || !ok) log('→ ' + short + '\n← ' + JSON.stringify(data), tokenWarn ? '' : ok ? 'o' : 'e');
+  if (tokenWarn) setStatus('ok', 'Connected (token warning)');
+  else setStatus(ok ? 'ok' : 'err', ok ? 'Connected' : (data.error || 'Device returned an error'));
+  return data;
+}
+async function cloud(path, body, method = 'POST') {
+  const r = await fetch('/api/cloud/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method, body }) });
+  return r.json();
+}
+const sel = () => [...selected].sort();
+const mask = list => [0, 1, 2, 3, 4].map(i => list.includes(i) ? 1 : 0);
+function needSel() {
+  if (!selected.size) { log('Select at least one screen first.', 'e'); return false; }
+  return true;
+}
+const presetId = () => $('preset').value === '' ? undefined : Number($('preset').value);
+
+// ---------- screens ----------
+const previews = [];
+for (let i = 0; i < 5; i++) {
+  const b = document.createElement('button');
+  b.className = 'scr';
+  b.setAttribute('aria-label', 'Screen ' + (i + 1));
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  previews.push(c);
+  b.append(c);
+  const s = document.createElement('span'); s.textContent = i + 1; b.append(s);
+  b.onclick = () => { selected.has(i) ? selected.delete(i) : selected.add(i); drawSel(); };
+  $('gate').append(b);
+}
+function drawSel() {
+  [...$('gate').children].forEach((b, i) => b.classList.toggle('sel', selected.has(i)));
+  store.set('sel', JSON.stringify([...selected]));
+}
+$('selAll').onclick = () => { selected = new Set([0, 1, 2, 3, 4]); drawSel(); };
+$('selNone').onclick = () => { selected.clear(); drawSel(); };
+function applyNums() { $('gate').classList.toggle('nonums', !$('showNums').checked); store.set('nums', $('showNums').checked ? '1' : '0'); }
+$('showNums').checked = store.get('nums') !== '0';
+$('showNums').onchange = applyNums;
+applyNums();
+drawSel();
+
+// ---------- connection ----------
+$('ip').onchange = () => store.set('ip', $('ip').value.trim());
+$('token').onchange = () => store.set('token', $('token').value.trim());
+$('connect').onclick = async () => {
+  store.set('ip', $('ip').value.trim()); store.set('token', $('token').value.trim());
+  setStatus('', 'Connecting…');
+  try {
+    const c = await cmd({ Command: 'Channel/GetAllConf' });
+    if (c.Brightness !== undefined) { $('bright').value = c.Brightness; $('brightVal').textContent = c.Brightness; }
+    if (c.error_code === 0) fetch('/api/picid/reset', { method: 'POST' });
+  } catch (e) {
+    if (e.message === 'no ip') setStatus('', 'Not connected');
+    else setStatus('err', 'Could not reach device');
+  }
+};
+function useDevice(d) {
+  $('ip').value = d.DevicePrivateIP; store.set('ip', d.DevicePrivateIP);
+  deviceId = d.DeviceId; store.set('deviceId', d.DeviceId);
+  hardware = d.Hardware || 400; store.set('hardware', hardware);
+  loadPresets();
+}
+$('discover').onclick = async () => {
+  log('Asking Divoom for devices on this network…');
+  const r = await cloud('Device/ReturnSameLANDevice', null, 'GET');
+  const list = r.DeviceList || [];
+  const box = $('found');
+  box.innerHTML = '';
+  box.hidden = false;
+  if (!list.length) { box.innerHTML = '<div class="hint" style="padding:10px">No devices found. Type the IP shown in the Divoom app instead.</div>'; return; }
+  if (list.length === 1) { useDevice(list[0]); box.hidden = true; log(`Found ${list[0].DeviceName} at ${list[0].DevicePrivateIP}`, 'o'); $('connect').click(); return; }
+  for (const d of list) {
+    const b = document.createElement('button');
+    b.innerHTML = '<b></b> <small></small>';
+    b.querySelector('b').textContent = d.DeviceName;
+    b.querySelector('small').textContent = `${d.DevicePrivateIP} · id ${d.DeviceId}`;
+    b.onclick = () => { useDevice(d); box.hidden = true; $('connect').click(); };
+    box.append(b);
+  }
+};
+
+// ---------- display ----------
+$('scrOn').onclick = () => cmd({ Command: 'Channel/OnOffScreen', OnOff: 1 });
+$('scrOff').onclick = () => cmd({ Command: 'Channel/OnOffScreen', OnOff: 0 });
+let brightTimer;
+$('bright').oninput = () => {
+  $('brightVal').textContent = $('bright').value;
+  clearTimeout(brightTimer);
+  brightTimer = setTimeout(() => cmd({ Command: 'Channel/SetBrightness', Brightness: Number($('bright').value) }), 150);
+};
+
+// Independent presets ("Control1".."Control5" in the app) come from Divoom's cloud.
+async function loadPresets() {
+  if (!deviceId) return;
+  const r = await cloud('Channel/Get5LcdInfoV2', { DeviceId: deviceId, DeviceType: 'LCD' });
+  const list = (r.LcdIndependenceList || []).sort((a, b) => a.LcdIndependPos - b.LcdIndependPos);
+  if (!list.length) return log('Could not load independent presets: ' + JSON.stringify(r), 'e');
+  const saved = store.get('preset');
+  $('preset').innerHTML = '';
+  for (const p of list) {
+    const o = document.createElement('option');
+    o.value = p.LcdIndependence; o.textContent = p.IndependenceName;
+    $('preset').append(o);
+  }
+  if (saved && list.some(p => String(p.LcdIndependence) === saved)) $('preset').value = saved;
+}
+$('preset').onchange = () => store.set('preset', $('preset').value);
+$('indepMode').onclick = () => {
+  if (presetId() === undefined) return log('Use "Find on network" so the presets can load.', 'e');
+  cmd({ Command: 'Channel/Set5LcdChannelType', ChannelType: 1, LcdIndependence: presetId() });
+};
+
+// ---------- clock faces ----------
+(async () => {
+  try {
+    const t = await cloud('Channel/GetDialType', null, 'GET');
+    for (const name of t.DialTypeList || []) {
+      const o = document.createElement('option'); o.value = 'type:' + name; o.textContent = 'Per screen: ' + name;
+      $('faceSource').append(o);
+    }
+  } catch {}
+})();
+
+let facePage = 1;
+$('faceSource').onchange = () => { facePage = 1; };
+$('loadFaces').onclick = async () => {
+  const src = $('faceSource').value, whole = src === 'whole';
+  const box = $('faces');
+  box.innerHTML = '<div class="hint" style="padding:10px">Loading…</div>';
+  let items = [];
+  if (whole) {
+    const r = await cloud('Channel/Get5LcdClockListForCommon', { DeviceId: deviceId || undefined, Page: facePage });
+    items = (r.ClockList || []).map(c => ({ id: c.ClockId, name: c.ClockName }));
+  } else {
+    const r = await cloud('Channel/GetDialList', { DialType: src.slice(5), DeviceType: 'LCD', Page: facePage });
+    items = (r.DialList || []).map(c => ({ id: c.ClockId, name: c.Name }));
+  }
+  box.innerHTML = '';
+  if (facePage > 1) {
+    const prev = document.createElement('button');
+    prev.innerHTML = '<small>← Previous page</small>';
+    prev.onclick = () => { facePage--; $('loadFaces').click(); };
+    box.append(prev);
+  }
+  if (!items.length) box.insertAdjacentHTML('beforeend', '<div class="hint" style="padding:10px">Nothing more here.</div>');
+  for (const it of items) {
+    const b = document.createElement('button');
+    b.innerHTML = '<span></span> <small></small>';
+    b.firstChild.textContent = it.name; b.lastChild.textContent = '#' + it.id;
+    b.onclick = () => { $('clockId').value = it.id; applyFace(it.id); };
+    box.append(b);
+  }
+  if (items.length >= 30) {
+    const more = document.createElement('button');
+    more.innerHTML = '<small>Next page →</small>';
+    more.onclick = () => { facePage++; $('loadFaces').click(); };
+    box.append(more);
+  }
+};
+async function applyFace(id) {
+  if ($('faceSource').value === 'whole') {
+    lastContent = { type: 'face', id };
+    return cmd({ Command: 'Channel/Set5LcdWholeClockId', ClockId: id });
+  }
+  await perScreen(i => ({ Command: 'Channel/SetClockSelectId', ClockId: id, LcdIndex: i }));
+}
+$('applyClock').onclick = () => {
+  const id = Number($('clockId').value);
+  if (!$('clockId').value) return log('Enter a clock ID.', 'e');
+  applyFace(id);
+};
+
+// Per-screen channel commands: switch to the preset, then one command per selected screen.
+async function perScreen(build) {
+  if (!needSel()) return;
+  const p = presetId();
+  if (p === undefined) return log('Use "Find on network" so the independent presets can load.', 'e');
+  await cmd({ Command: 'Channel/Set5LcdChannelType', ChannelType: 1, LcdIndependence: p }, true);
+  for (const i of sel()) await cmd({ ...build(i), LcdIndependence: p });
+}
+$('applyEq').onclick = () => perScreen(i => ({ Command: 'Channel/SetEqPosition', EqPosition: Number($('eqPos').value), LcdIndex: i }));
+
+// ---------- ambient light ----------
+// LightList slot 1 drives the edge light, slot 2 the backlight, and effect ids differ per zone.
+const LIGHT_FX = { 1: { solid: 4, rainbow: 10 }, 2: { solid: 5, rainbow: 4 } };
+function sendLight(zone, on, kind, color, cycle, quiet) {
+  const list = [{ SelectEffect: 0 }, { SelectEffect: 0 }, { SelectEffect: 0 }];
+  if (kind) list[zone] = { SelectEffect: LIGHT_FX[zone][kind], Color: color, ColorCycle: cycle };
+  return cmd({ Command: 'Channel/SetRGBInfo', SelectLightIndex: zone, Brightness: 100, OnOff: on,
+               Color: color, ColorCycle: cycle, LightList: list }, quiet);
+}
+// (Setting a light also stops the light show and any rainbow alert — the engine sees the command.)
+function light(on, kind, cycle) {
+  const zone = Number($('lightZone').value), color = $('lightColor').value;
+  lastLights = { mode: on ? kind : 'off', zone, color };
+  return sendLight(zone, on, kind, color, cycle);
+}
+$('lightSolid').onclick = () => light(1, 'solid', 0);
+$('lightRainbow').onclick = () => light(1, 'rainbow', 1);
+$('lightOff').onclick = () => light(0, null, 0);
+
+// ---------- pictures ----------
+function loadImage(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img); img.onerror = rej;
+    img.src = URL.createObjectURL(file);
+  });
+}
+function drawFitted(ctx, img, w, h, mode) {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+  const s = mode === 'cover' ? Math.max(w / img.width, h / img.height) : Math.min(w / img.width, h / img.height);
+  const dw = img.width * s, dh = img.height * s;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+}
+// TimesGate wants each 128x128 frame as a base64 JPEG (raw RGB leaves the screen on "loading").
+function tileJpeg(src, x) {
+  const t = document.createElement('canvas'); t.width = t.height = 128;
+  t.getContext('2d').drawImage(src, x, 0, 128, 128, 0, 0, 128, 128);
+  return t.toDataURL('image/jpeg', 0.95).split(',')[1];
+}
+// Ids come from the server, which shares the counter with the engine so they always increase.
+async function nextPicId() {
+  const r = await fetch('/api/picid', { method: 'POST' });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Could not get a picture id');
+  return d.id;
+}
+async function sendFrame(src, x, screens) {
+  return cmd({ Command: 'Draw/SendHttpGif', LcdArray: mask(screens), PicNum: 1, PicWidth: 128, PicOffset: 0,
+               PicID: await nextPicId(), PicSpeed: 1000, PicData: tileJpeg(src, x) }, true);
+}
+$('sendImg').onclick = async () => {
+  const f = $('imgFile').files[0];
+  if (!f) return log('Choose a picture first.', 'e');
+  const span = $('span').checked;
+  if (!span && !needSel()) return;
+  stopTiles();
+  if (f.type === 'image/gif') {
+    const gif = await decodeGif(f).catch(() => null);
+    if (gif && gif.frames.length > 1) return sendAnimatedGif(gif, span);
+  }
+  const img = await loadImage(f);
+  const cv = document.createElement('canvas');
+  cv.width = span ? 640 : 128; cv.height = 128;
+  drawFitted(cv.getContext('2d'), img, cv.width, cv.height, $('fit').value);
+  if (span) {
+    for (let i = 0; i < 5; i++) {
+      await sendFrame(cv, i * 128, [i]);
+      previews[i].getContext('2d').drawImage(cv, i * 128, 0, 128, 128, 0, 0, 128, 128);
+    }
+  } else {
+    await sendFrame(cv, 0, sel());
+    for (const i of sel()) previews[i].getContext('2d').drawImage(cv, 0, 0);
+  }
+  log('Picture sent.', 'o');
+  lastContent = null;
+};
+// Animated GIF: fit every frame (to one 640px strip, or a 128px tile) and upload as a loop.
+async function sendAnimatedGif(gif, span) {
+  const w = span ? 640 : 128;
+  const frames = gif.frames.map(src => {
+    const c = document.createElement('canvas'); c.width = w; c.height = 128;
+    drawFitted(c.getContext('2d'), src, w, 128, $('fit').value);
+    return c;
+  });
+  const jobs = span ? stripJobs(frames) : sel().map(s => ({ screen: s, frames }));
+  playTiles(jobs, gif.speed);
+  $('sendImg').disabled = true;
+  try {
+    await sendScreens(jobs, gif.speed, p => { $('sendImg').textContent = `Sending ${Math.round(p * 100)}%`; });
+    log(`Animated GIF sent (${frames.length} frames).`, 'o');
+    lastContent = null;
+  } finally {
+    $('sendImg').disabled = false; $('sendImg').textContent = 'Send picture';
+  }
+}
+
+// ---------- GIFs ----------
+$('sendGif').onclick = async () => {
+  if (!needSel()) return;
+  stopTiles();
+  let url = $('gifUrl').value.trim();
+  const f = $('gifFile').files[0];
+  if (f) {
+    const r = await fetch('/api/upload?ip=' + encodeURIComponent($('ip').value.trim()), { method: 'POST', body: f });
+    const d = await r.json();
+    if (!r.ok) return log('Upload failed: ' + d.error, 'e');
+    url = d.url; log('Hosting GIF at ' + url);
+    const img = await loadImage(f);
+    for (const i of sel()) drawFitted(previews[i].getContext('2d'), img, 128, 128, 'cover');
+  }
+  if (!url) return log('Choose a GIF file or enter a URL.', 'e');
+  cmd({ Command: 'Device/PlayGif', LcdArray: mask(sel()), FileName: [url] });
+};
+
+// ---------- text ----------
+// Text overlays need a SendHttpGif on the same screen first, so each screen gets its own frame.
+$('sendText').onclick = async () => {
+  if (!needSel()) return;
+  stopTiles();
+  const color = $('textColor').value, x = Number($('textX').value), y = Number($('textY').value);
+  const width = Math.max(17, Math.min(63, Number($('textW').value)));
+  for (const i of sel()) {
+    const bg = document.createElement('canvas'); bg.width = bg.height = 128;
+    const g = bg.getContext('2d');
+    if ($('textBg').checked) { g.fillStyle = '#000'; g.fillRect(0, 0, 128, 128); }
+    else g.drawImage(previews[i], 0, 0);
+    await sendFrame(bg, 0, [i]);
+    await cmd({ Command: 'Draw/SendHttpText', LcdIndex: i, TextId: 1, x, y, dir: 0,
+      font: Number($('font').value), TextWidth: width, speed: 30, TextString: $('text').value,
+      color, align: Number($('align').value) });
+    const p = previews[i].getContext('2d');
+    p.drawImage(bg, 0, 0);
+    p.fillStyle = color; p.font = 'bold 14px sans-serif'; p.textBaseline = 'top';
+    p.fillText($('text').value, x, y, width);
+  }
+};
+$('clearText').onclick = async () => {
+  if (!needSel()) return;
+  for (const i of sel()) await cmd({ Command: 'Draw/ClearHttpText', LcdId: i, TextId: -1 });
+};
+
+// ---------- tools ----------
+// The device's timer only takes minutes and seconds, so hours are sent as extra minutes.
+// The server flashes the label on screen 2 when time is up (engine.js), page open or not.
+$('tLabel').value = store.get('tLabel') || '';
+$('tLabel').oninput = () => store.set('tLabel', $('tLabel').value);
+function showTimerInfo(t) {
+  $('tInfo').textContent = t ? `"${t.label}" flashes on screen 2 at ${new Date(t.endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.` : '';
+}
+$('timerStart').onclick = async () => {
+  const minute = Number($('tHr').value) * 60 + Number($('tMin').value), second = Number($('tSec').value);
+  await cmd({ Command: 'Tools/SetTimer', Minute: minute, Second: second, Status: 1 });
+  const s = await engineCall('timer', { ms: (minute * 60 + second) * 1000, label: $('tLabel').value });
+  showTimerInfo(s.timer);
+};
+$('timerStop').onclick = async () => {
+  await cmd({ Command: 'Tools/SetTimer', Minute: 0, Second: 0, Status: 0 });
+  showTimerInfo(null);
+  await engineCall('timer', { stop: true });
+};
+onEngineState(s => { if (s.timer) showTimerInfo(s.timer); });
+document.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => cmd({ Command: 'Tools/SetStopWatch', Status: Number(b.dataset.sw) }));
+$('score').onclick = () => cmd({ Command: 'Tools/SetScoreBoard', RedScore: Number($('red').value), BlueScore: Number($('blue').value) });
+// +/− change the score and show it straight away.
+document.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => {
+  const box = $(b.dataset.sc);
+  box.value = Math.min(999, Math.max(0, Number(box.value) + Number(b.dataset.d)));
+  $('score').onclick();
+});
+$('scoreReset').onclick = () => { $('red').value = 0; $('blue').value = 0; $('score').onclick(); };
+// The meter misbehaves if switched on while it's already on, so On always switches it off first.
+// (The server remembers it's on and switches it off before other content takes over the screens.)
+async function noiseOn() {
+  await cmd({ Command: 'Tools/SetNoiseStatus', NoiseStatus: 0 }, true);
+  await new Promise(r => setTimeout(r, 500));
+  await cmd({ Command: 'Tools/SetNoiseStatus', NoiseStatus: 1 });
+}
+document.querySelectorAll('[data-noise]').forEach(b => b.onclick = () =>
+  b.dataset.noise === '1' ? noiseOn() : cmd({ Command: 'Tools/SetNoiseStatus', NoiseStatus: 0 }));
+$('beep').onclick = () => cmd({ Command: 'Device/PlayBuzzer', ActiveTimeInCycle: 300, OffTimeInCycle: 200, PlayTotalTime: 1000 });
+
+// ---------- settings ----------
+document.querySelectorAll('[data-h24]').forEach(b => b.onclick = () => cmd({ Command: 'Device/SetTime24Flag', Mode: Number(b.dataset.h24) }));
+document.querySelectorAll('[data-temp]').forEach(b => b.onclick = () => cmd({ Command: 'Device/SetDisTempMode', Mode: Number(b.dataset.temp) }));
+$('syncTime').onclick = () => cmd({ Command: 'Device/SetUTC', Utc: Math.floor(Date.now() / 1000) });
+$('readConf').onclick = () => cmd({ Command: 'Channel/GetAllConf' });
+$('uploadMode').value = store.get('uploadMode') || 'batch';
+$('uploadMode').onchange = () => store.set('uploadMode', $('uploadMode').value);
+$('reboot').onclick =() => { if (confirm('Reboot the TimesGate?')) cmd({ Command: 'Device/SysReboot' }); };
+
+// ---------- raw ----------
+$('sendRaw').onclick = () => {
+  let p;
+  try { p = JSON.parse($('raw').value); } catch (e) { return log('Invalid JSON: ' + e.message, 'e'); }
+  cmd(p);
+};
+
+// ---------- microphone (mic.js in the server) ----------
+async function micCall(body) {
+  const r = await fetch('/api/mic', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  return r.json();
+}
+function showMic(s) {
+  const bar = '█'.repeat(Math.round((s.level || 0) * 12)).padEnd(12, '░');
+  $('micStatus').textContent = !s.tool ? 'No capture tool found (install ffmpeg, or alsa-utils on a Pi).'
+    : s.error ? 'Problem: ' + s.error
+    : s.running ? `${bar}  ${s.db} dB · used by ${s.users.join(', ') || 'a recording'}`
+    : 'Off — nothing is using it.';
+  if (s.device && $('micDevice').value !== s.device && [...$('micDevice').options].some(o => o.value === s.device)) $('micDevice').value = s.device;
+}
+(async () => {
+  try {
+    const list = await (await fetch('/api/mic/devices')).json();
+    $('micDevice').innerHTML = list.length ? '' : '<option value="">No microphones found</option>';
+    for (const d of list) { const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; $('micDevice').append(o); }
+    showMic(await micCall());
+  } catch {}
+})();
+$('micDevice').onchange = async () => showMic(await micCall({ device: $('micDevice').value }));
+$('micTest').onclick = async () => showMic(await micCall({ test: 10 }));
+setInterval(async () => { try { showMic(await micCall()); } catch {} }, 1000);
+
+// ---------- start-up ----------
+if (deviceId) loadPresets();
+if ($('ip').value) $('connect').click();
+else if (!$('ip').value) $('discover').click();
+</script>
+<script>const makeCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };</script>
+<script src="anim.js"></script>
+<script src="effects.js"></script>
+<script src="banner.js"></script>
+<script src="scenes.js"></script>
+<script src="plugins.js"></script>
+<script src="buttons.js"></script>
+</body>
+</html>

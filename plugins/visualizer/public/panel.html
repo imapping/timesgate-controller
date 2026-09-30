@@ -1,0 +1,12 @@
+<div class="row">
+  <label><input type="checkbox" id="vzLights"> Lights flash to the beat</label>
+  <select id="vzZone"><option value="back">Backlight</option><option value="edge">Edge light</option><option value="both">Both</option></select>
+  <select id="vzPalette"></select>
+</div>
+<div class="row">
+  <label for="vzSens">Beat sensitivity</label>
+  <input type="range" id="vzSens" min="0" max="1" step="0.05" style="max-width:200px">
+  <span id="vzNow" class="hint" style="margin:0"></span>
+</div>
+<div data-tg-controls></div>
+<p class="hint">Uses the microphone (see Microphone below), which only runs while the lights or screens are following the music. The screens play in time with the tempo rather than every beat — the device can't take live frames fast enough — and update when the tempo changes. Setting a light or starting the light show switches the beat lights off.</p>

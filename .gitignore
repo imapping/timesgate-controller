@@ -1,0 +1,20 @@
+# Secrets and personal settings: Spotify login, AudD token, plugin PIN, button setup, mic choice
+data/
+spotify.json
+
+# Runtime state and logs
+engine.json
+server.log
+*.log
+
+# Uploaded GIFs and photos
+uploads/
+
+# Dependencies (npm install)
+node_modules/
+
+# Plugin installs in progress
+plugins/*.installing/
+
+# Personal Claude Code settings
+.claude/settings.local.json

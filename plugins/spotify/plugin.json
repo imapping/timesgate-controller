@@ -1,0 +1,10 @@
+{
+  "id": "spotify",
+  "name": "Spotify",
+  "version": "1.0.0",
+  "description": "What you're playing on Spotify: album art, song, artist and album, updated as the music changes.",
+  "author": "TimesGate",
+  "order": 20,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "weather",
+  "name": "Weather",
+  "version": "1.0.0",
+  "description": "Current conditions and a 4-day forecast from Open-Meteo, with animated icons.",
+  "author": "TimesGate",
+  "order": 30,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"],
+  "liveLabel": "Keep it updated (every 30 min)"
+}
