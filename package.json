@@ -1,15 +1,20 @@
 {
   "name": "timesgate",
   "version": "1.0.0",
-  "description": "",
-  "main": "claude-statusline.js",
+  "description": "Web controller for the Divoom Times Gate: plugins, music visualizer, vinyl recognition, button box and several units",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "divoom",
+    "timesgate",
+    "times-gate",
+    "pixel-display"
+  ],
+  "author": "Gary Nicholson",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@napi-rs/canvas": "^1.0.9",

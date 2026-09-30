@@ -1,7 +1,7 @@
 // Claude Code status line that also forwards your usage limits to the TimesGate controller.
 // Claude Code runs this with session JSON on stdin; we POST the rate limits to the local server
 // (ignored if it isn't running) and print a one-line status for the terminal.
-// Configure in ~/.claude/settings.json:  "statusLine": { "type": "command", "command": "node D:/Claude/TimesGate/claude-statusline.js" }
+// Configure in ~/.claude/settings.json:  "statusLine": { "type": "command", "command": "node /path/to/TimesGate/claude-statusline.js" }
 
 // 127.0.0.1 rather than localhost: resolving "localhost" can take seconds on Windows.
 const SERVER = process.env.TIMESGATE_URL || 'http://127.0.0.1:8080';
