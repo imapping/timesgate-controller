@@ -12,6 +12,38 @@ working with the page closed.
 - A **USB button box** or game controller: map each button to any action
 - **Several Times Gates**, each with its own screens and settings
 
+![The controller page, showing the Weather plugin on the five screens](docs/screenshots/overview.png)
+
+## Screenshots
+
+The five screens as the page previews them. **Weather:**
+
+![Weather: current conditions and a 4-day forecast](docs/screenshots/screens-weather.png)
+
+**Claude status:** your turn / working, and session and weekly usage.
+
+![Claude status on the five screens](docs/screenshots/screens-claude.png)
+
+**Music visualizer:** dances in time with the beat it hears through the microphone.
+
+![Music visualizer bars](docs/screenshots/screens-visualizer.png)
+
+**Vinyl:** identifies the record that's playing, within a monthly request budget.
+
+![The Vinyl card, with recently identified tracks](docs/screenshots/vinyl.png)
+
+**Button box:** give each button a press and a hold action.
+
+![Buttons card mapping joystick and buttons to actions](docs/screenshots/buttons.png)
+
+**Plugins:** turn them on or off, read their docs, or install new ones from a GitHub link.
+
+![The Plugins card](docs/screenshots/plugins.png)
+
+It works on a phone too:
+
+<img src="docs/screenshots/mobile.png" alt="The controller on a phone" width="300">
+
 ## Getting started
 
 You need [Node.js](https://nodejs.org/) 18 or newer, on a PC or a Raspberry Pi on the same network
