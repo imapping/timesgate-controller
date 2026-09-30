@@ -263,7 +263,7 @@ async function runAction(fullId, args = {}) {
   return a.run(args);
 }
 
-// ---------- install / remove (from this PC, or with the PIN) ----------
+// ---------- install / remove (from this computer or a trusted one, or with the PIN) ----------
 const hashPin = (pin, salt) => crypto.scryptSync(String(pin), salt, 32).toString('hex');
 function setPin(pin) {
   if (!pin) { conf.pin = null; saveConf(); return; }
@@ -398,12 +398,12 @@ async function manage(req, res, url) {
     case '/api/plugins/enable': setEnabled(body.id, body.on); break;
     case '/api/plugins/action': return deps.sendJson(res, 200, { ok: true, result: await runAction(body.id, { unit: req.headers['x-tg-unit'], ...body.args }) ?? null });
     case '/api/plugins/pin':
-      if (!deps.isLoopback(req)) return deps.sendJson(res, 403, { error: 'Set the PIN on the PC itself.' });
+      if (!deps.isLoopback(req)) return deps.sendJson(res, 403, { error: 'Set the PIN from the computer running the controller, or one it trusts.' });
       setPin(body.pin); break;
     case '/api/plugins/install':
     case '/api/plugins/remove':
       if (!await allowedToManage(req))
-        return deps.sendJson(res, 403, { error: conf.pin ? 'Wrong PIN.' : 'Install and remove plugins on the PC itself, or set a PIN there first.' });
+        return deps.sendJson(res, 403, { error: conf.pin ? 'Wrong PIN.' : 'Install and remove plugins from the computer running the controller (or one it trusts), or set a PIN there first.' });
       if (p.endsWith('install')) return deps.sendJson(res, 200, await install(isZip ? { zip: raw } : { url: body.url }));
       remove(body.id); break;
     default: res.writeHead(404); return res.end();

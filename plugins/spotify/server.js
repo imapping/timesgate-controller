@@ -67,7 +67,7 @@ module.exports = tg => {
   }
 
   const localOnly = ctx => {
-    if (!ctx.local) throw Object.assign(new Error(`Open the page on this PC at http://127.0.0.1:${tg.port} to set up Spotify.`), { status: 403 });
+    if (!ctx.local) throw Object.assign(new Error(`Open the page at http://127.0.0.1:${tg.port} on the computer running the controller to set up Spotify (for a Raspberry Pi, through an SSH tunnel: see the README).`), { status: 403 });
   };
 
   return {

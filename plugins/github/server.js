@@ -3,7 +3,7 @@
 // when not on the screens, so it can celebrate new stars, forks, issues and pull requests (beep,
 // rainbow edge, and confetti on screen 1 if GitHub is showing).
 // Settings in data/github.json: { token, repos, beep, rainbow, events, seen, recent }.
-// The token is set from this PC only and never sent to the page. Without a token, it shows the
+// The token is set from this computer (or a trusted one) only, and never sent to the page. Without a token, it shows the
 // public numbers (no visitors, clones or contribution graph).
 const { renderGithub, GH_SPEED } = require('./public/render.js');
 
@@ -163,7 +163,7 @@ module.exports = tg => {
     if (!m || !REPO_RE.test(m[1])) throw Object.assign(new Error('Use owner/name, e.g. imapping/timesgate-controller, or the GitHub link.'), { status: 400 });
     return m[1];
   };
-  const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the GitHub token on the PC itself.'), { status: 403 }); };
+  const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the GitHub token from the computer running the controller, or one it trusts.'), { status: 403 }); };
 
   tg.after(3000, check);
   tg.every(CHECK_MS, check);

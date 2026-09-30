@@ -26,7 +26,7 @@
     const firstTrack = !st || (s.track && (!st.track || st.track.title !== s.track.title));
     st = s;
     $p('#vnSetup').hidden = s.hasToken;
-    $p('#vnTokenNote').textContent = s.hasToken ? 'To change the AudD token, open this page on the PC.' : '';
+    $p('#vnTokenNote').textContent = s.hasToken ? 'To change the AudD token, open this page on the computer running the controller, or one it trusts.' : '';
     $p('#vnToggle').textContent = s.active ? 'Stop listening' : 'Start listening';
     $p('#vnToggle').disabled = !s.hasToken;
     $p('#vnNow').disabled = !s.hasToken || s.phase === 'identifying';

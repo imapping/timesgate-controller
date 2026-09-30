@@ -65,7 +65,7 @@ module.exports = tg => {
   }
 
   // Writes only from this computer (hooks and the status-line script run locally).
-  const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Only from this PC'), { status: 403 }); };
+  const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Only from the computer running the controller, or one it trusts'), { status: 403 }); };
 
   return {
     render: () => ({ speed: CL_SPEED, parts: renderClaude(status()).map((sc, i) => ({ key: sc.key, jobs: [{ screen: i, frames: sc.frames }] })) }),

@@ -182,7 +182,7 @@ $('plSavePin').onclick = async () => {
   catch (e) { $('plInfo').textContent = e.message; }
 };
 $('plClearPin').onclick = async () => {
-  try { drawPluginList(await pluginCall('pin', { pin: null })); $('plInfo').textContent = 'PIN removed: installing now only works on the PC.'; }
+  try { drawPluginList(await pluginCall('pin', { pin: null })); $('plInfo').textContent = 'PIN removed: installing now only works from the computer running the controller, or one it trusts.'; }
   catch (e) { $('plInfo').textContent = e.message; }
 };
 

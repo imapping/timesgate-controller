@@ -159,7 +159,7 @@ module.exports = tg => {
     return artCache.get(url);
   }
 
-  const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the AudD token on the PC itself.'), { status: 403 }); };
+  const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the AudD token from the computer running the controller, or one it trusts.'), { status: 403 }); };
   const state = () => ({
     active, phase, status, until: active ? until : null, hasToken: !!s.token,
     used: used(), cap: s.cap, autoOffMin: s.autoOffMin, autoShow: s.autoShow,
