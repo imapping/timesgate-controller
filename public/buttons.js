@@ -18,7 +18,7 @@ function btOptions(actions, selected) {
     const g = groups[a.plugin] || (groups[a.plugin] = document.createElement('optgroup'));
     g.label = a.plugin === 'core' ? 'Built in' : a.label.split(':')[0];
     const o = document.createElement('option');
-    o.value = a.id; o.textContent = a.plugin === 'core' ? a.label : a.label.split(': ').slice(1).join(': ') || a.label;
+    o.value = a.id; o.textContent = a.label;  // the full "Plugin: action" label, since a closed select shows only this text
     g.append(o);
   }
   Object.values(groups).forEach(g => sel.append(g));
