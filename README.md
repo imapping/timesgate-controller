@@ -292,7 +292,7 @@ Claude is a trademark of Anthropic.
 
 ## License
 
-[MIT](LICENSE) © 2026 Gary Nicholson
+[MIT](LICENSE) © 2026 Gary Nicholson · [@imapping on X](https://x.com/imapping)
 
 The dependencies are also permissively licensed: `@napi-rs/canvas` (MIT, bundles Skia, BSD-3),
 `node-hid` (MIT/X11, with hidapi used under its BSD licence), `node-addon-api` and
