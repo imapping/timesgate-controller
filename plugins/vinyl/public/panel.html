@@ -11,6 +11,11 @@
   <button id="vnNow" title="Listen for 10 seconds and identify it now (one request)">Identify now</button>
   <span id="vnStatus" style="font-weight:600"></span>
 </div>
+<div id="vnWaveBox" hidden style="margin:2px 0 10px">
+  <canvas id="vnWave" style="width:100%;height:84px;display:block;border-radius:8px;background:var(--field)" title="The last 9 seconds. Orange: the clip being sent to AudD."></canvas>
+  <canvas id="vnScope" style="width:100%;height:48px;display:block;margin-top:6px;border-radius:8px;background:var(--field)" title="The sound right now"></canvas>
+  <div id="vnWaveInfo" class="hint" style="margin-top:4px"></div>
+</div>
 <div class="row">
   <span id="vnUsage" class="hint" style="margin:0"></span>
 </div>

@@ -47,8 +47,66 @@
       h.firstChild.append(tr);
     }
     if (firstTrack && s.track) p.runPreview().catch(() => {});
+    syncWave();
   }
   p.onState(apply);
+
+  // Live waveform while it's listening or identifying: only on this page, never on the Times Gate.
+  // The server streams peaks (one per 23 ms) and the latest 23 ms of sound (/api/vinyl/wave).
+  const WAVE_LEN = 400;  // about 9 seconds of peaks
+  let es = null, hist = [];
+  function syncWave() {
+    const want = !!st && (st.active || st.phase === 'identifying') && !document.hidden;
+    if (want && !es) {
+      es = new EventSource('/api/vinyl/wave');
+      es.onmessage = e => { try { drawWave(JSON.parse(e.data)); } catch {} };
+      $p('#vnWaveBox').hidden = false;
+    } else if (!want && es) {
+      es.close(); es = null; hist = [];
+      $p('#vnWaveBox').hidden = true;
+    }
+  }
+  document.addEventListener('visibilitychange', syncWave);
+
+  function fitCanvas(c) {  // sharp on high-density screens
+    const r = devicePixelRatio || 1, w = Math.round(c.clientWidth * r), h = Math.round(c.clientHeight * r);
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    return r;
+  }
+  function drawWave(m) {
+    for (const v of m.peaks) hist.push({ v, clip: m.phase === 'identifying' });
+    if (hist.length > WAVE_LEN) hist.splice(0, hist.length - WAVE_LEN);
+    const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+    const accent = col('--accent'), ink = col('--ink'), muted = col('--muted');
+
+    // Scrolling history, mirrored around the middle. Square root so quiet passages still show.
+    const c = $p('#vnWave'), r = fitCanvas(c), g = c.getContext('2d'), W = c.width, H = c.height, mid = H / 2;
+    g.clearRect(0, 0, W, H);
+    const bw = W / WAVE_LEN;
+    hist.forEach((h, i) => {
+      const x = W - (hist.length - i) * bw, a = Math.max(r, Math.sqrt(h.v / 100) * (mid - 2 * r));
+      g.fillStyle = h.clip ? accent : muted;
+      g.fillRect(x, mid - a, Math.max(r, bw - (bw > 3 ? r : 0)), a * 2);
+    });
+
+    // The sound right now, scaled up so quiet sound is visible.
+    const s = $p('#vnScope'), q = s.getContext('2d');
+    fitCanvas(s);
+    q.clearRect(0, 0, s.width, s.height);
+    if (m.scope.length) {
+      const max = Math.max(6, ...m.scope.map(Math.abs));
+      q.strokeStyle = m.phase === 'identifying' ? accent : ink; q.lineWidth = 1.5 * r; q.lineJoin = 'round';
+      q.beginPath();
+      m.scope.forEach((v, i) => {
+        const x = i / (m.scope.length - 1) * s.width, y = s.height / 2 - v / max * (s.height / 2 - 3 * r);
+        i ? q.lineTo(x, y) : q.moveTo(x, y);
+      });
+      q.stroke();
+    }
+    $p('#vnWaveInfo').textContent = m.db > -98
+      ? `${m.phase === 'identifying' ? 'Recording a clip for AudD (orange)' : 'Listening'} · ${m.db} dB`
+      : 'Microphone off';
+  }
 
   $p('#vnToggle').onclick = () => call(st && st.active ? 'off' : 'on', {});
   // Poll faster while it's listening, so "Listening… / Identifying…" and the result show promptly.

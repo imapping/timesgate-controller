@@ -192,7 +192,7 @@ back. Call `tg.device.stopLightShow()` before you start.
 | `tg.device.beep({ on, off, total }, unit?)` | Beep (milliseconds). The default is the units with alerts on. |
 | `tg.device.edgeRainbow(ms, unit?)` | Edge light rainbow for a while, then back to how it was. The default is the units with alerts on. |
 | `tg.device.stopLightShow(unit?)` | Stop the built-in light show before driving the lights yourself. The default is all units. |
-| `tg.mic.listen(fn, { sensitivity })` | Use the microphone. `fn({ t, level, db, beat, bpm })` runs about 43 times a second. `level` is 0–1, `db` is dBFS, `beat` is true on a detected beat, and `bpm` is the tempo or null. Sensitivity is 0–1 and sets how easily beats are detected. Returns a function that stops listening. The mic only runs while something listens, and it stops automatically when the plugin is turned off. |
+| `tg.mic.listen(fn, { sensitivity, samples })` | Use the microphone. `fn({ t, level, db, beat, bpm })` runs about 43 times a second. `level` is 0–1, `db` is dBFS, `beat` is true on a detected beat, and `bpm` is the tempo or null. Sensitivity is 0–1 and sets how easily beats are detected. With `{ samples: true }`, `fn` also gets `samples`, the raw sound as an Int16Array (512 samples, about 23 ms; valid only during the call). The Vinyl plugin uses it to stream a waveform to its card. Returns a function that stops listening. The mic only runs while something listens, and it stops automatically when the plugin is turned off. |
 | `tg.mic.record(ms)` | Resolves to a WAV Buffer of the next `ms` of sound (mono, 16-bit, 22.05 kHz, up to 30 s). Nothing is saved to disk. |
 | `tg.mic.status()` | `{ running, error, device, level, db, bpm, … }` |
 

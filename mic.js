@@ -168,9 +168,10 @@ function onData(buf) {
   const frames = Math.floor(all.length / HOP);
   const sens = listeners.size ? Math.max(...[...listeners.values()].map(l => l.sensitivity ?? 0.5)) : 0.5;
   for (let f = 0; f < frames; f++) {
-    const fr = analyse(all.subarray(f * HOP, (f + 1) * HOP), sens);
+    const samples = all.subarray(f * HOP, (f + 1) * HOP);
+    const fr = analyse(samples, sens);
     last = fr;
-    for (const l of listeners.values()) { try { l.fn(fr); } catch (e) { log(`${l.who}:`, e.message); } }
+    for (const l of listeners.values()) { try { l.fn(l.samples ? { ...fr, samples } : fr); } catch (e) { log(`${l.who}:`, e.message); } }
   }
   pending = pending.subarray(frames * HOP * 2);
   if (!inUse()) stop();
@@ -188,10 +189,11 @@ function wav(pcm) {
 // ---------- API ----------
 let nextToken = 1;
 // fn({ t, level 0..1, db, beat, bpm }) about 43 times a second. Returns a function that stops listening.
-// opts.sensitivity 0..1 (beat detection; higher = more beats).
+// opts.sensitivity 0..1 (beat detection; higher = more beats). opts.samples: also pass the raw
+// sound, as `samples` (Int16Array of HOP samples, only valid during the call).
 function listen(fn, who = '?', opts = {}) {
   const token = nextToken++;
-  listeners.set(token, { fn, who, sensitivity: opts.sensitivity });
+  listeners.set(token, { fn, who, sensitivity: opts.sensitivity, samples: !!opts.samples });
   start();
   return () => { listeners.delete(token); if (!inUse()) stop(); };
 }

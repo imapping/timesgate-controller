@@ -159,6 +159,37 @@ module.exports = tg => {
     return artCache.get(url);
   }
 
+  // Waveforms for the page while it's listening or identifying (never sent to the Times Gate).
+  // GET /wave streams server-sent events, about 14 a second:
+  //   { peaks: [0..100, one per 23 ms], scope: [-100..100 × 128, the latest 23 ms], phase, db }
+  // The mic is only tapped while a page is watching and Vinyl is listening or identifying.
+  const waveClients = new Set();
+  let stopWave = null, peaks = [], scope = [], waveDb = -99, pingTick = 0;
+  function onWave(f) {
+    let peak = 0;
+    for (const v of f.samples) { const a = v < 0 ? -v : v; if (a > peak) peak = a; }
+    peaks.push(Math.round(peak / 327.68));
+    scope = Array.from({ length: 128 }, (_, i) => Math.round(f.samples[Math.floor(i * f.samples.length / 128)] / 327.68));
+    waveDb = f.db;
+    if (peaks.length >= 3) {
+      const msg = `data: ${JSON.stringify({ peaks, scope, phase, db: waveDb })}\n\n`;
+      peaks = [];
+      for (const res of waveClients) res.write(msg);
+    }
+  }
+  function syncWave() {
+    const want = waveClients.size > 0 && (active || phase === 'identifying');
+    if (want && !stopWave) stopWave = tg.mic.listen(onWave, { samples: true });
+    else if (!want && stopWave) {
+      stopWave(); stopWave = null; peaks = [];
+      for (const res of waveClients) res.write(`data: ${JSON.stringify({ peaks: [], scope: [], phase, db: -99 })}\n\n`);
+    }
+  }
+  tg.every(1000, () => {
+    syncWave();
+    if (++pingTick % 15 === 0) for (const res of waveClients) res.write(': ping\n\n');  // keep idle connections open
+  });
+
   const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the AudD token from the computer running the controller, or one it trusts.'), { status: 403 }); };
   const state = () => ({
     active, phase, status, until: active ? until : null, hasToken: !!s.token,
@@ -183,6 +214,12 @@ module.exports = tg => {
         tg.save();
         return state();
       },
+      'GET /wave': ({ req, res }) => {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+        res.write('retry: 3000\n\n');
+        waveClients.add(res); syncWave();
+        req.on('close', () => { waveClients.delete(res); syncWave(); });
+      },
       // Album art for the page's previews (only the current track's image).
       'GET /art': async ({ query, res }) => {
         const u = query.get('u');
@@ -196,6 +233,6 @@ module.exports = tg => {
       listen: { label: 'identify records on/off', run: ({ on, unit } = {}) => ((on ?? !active) ? turnOn(unit === 'all' ? undefined : unit) : turnOff()) },
       now: { label: 'identify what\'s playing now', run: ({ unit } = {}) => identifyNow(unit === 'all' ? undefined : unit) },
     },
-    stop: () => { active = false; stopMic = null; },
+    stop: () => { active = false; stopMic = null; stopWave = null; for (const res of waveClients) res.end(); waveClients.clear(); },
   };
 };
