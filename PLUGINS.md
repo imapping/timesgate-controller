@@ -113,6 +113,19 @@ re-render more often than the data changes, and use keys. Pictures are sent as J
 fine one-pixel detail. Fonts: `system-ui, "Segoe UI", sans-serif` works in both the page and the
 server.
 
+### Several Times Gates
+
+The controller can drive several Times Gates ("units", with ids like `u1`, `u2`). A plugin still
+draws one set of five screens. The engine sends it to every unit showing the plugin, with each
+unit re-sending only its changed screens.
+- `render(unit)` gets the unit id. Most plugins ignore it; use it only if a unit needs different content.
+- Routes get `ctx.unit`, the unit the page has selected. Action `run(args)` gets `args.unit`, which
+  is an id, `'all'` or undefined. Pass these on to `tg.show(unit)` and `tg.setLive(on, unit)`.
+- `state(unit)` gets the unit the page is showing, and `pageCommand(payload, unit)` says which unit it
+  came from.
+- Leave `unit` out for the default: the first unit for showing things, every unit for
+  `tg.device.send`, and the units with alerts turned on for beeps and rainbows.
+
 ### Staying up to date
 
 Two ways, use either or both:
@@ -166,16 +179,18 @@ back. Call `tg.device.stopLightShow()` before you start.
 | `tg.id`, `tg.dir`, `tg.port` | The plugin's id, its folder, and the server's port |
 | `tg.log(...)` | Write to server.log, tagged with the plugin id |
 | `tg.settings`, `tg.save()` | Saved data (JSON object, in `data/<id>.json`, kept across restarts, upgrades and removal). Change it, then call `save()`. You may replace the whole object. |
-| `tg.update()` | Redraw the screens if this plugin is being kept updated |
-| `tg.show()` | Show it once now (promise) |
-| `tg.setLive(on)`, `tg.isLive()` | Start/stop keeping it updated |
+| `tg.update()` | Redraw the screens of every unit keeping this plugin updated |
+| `tg.show(unit?)` | Show it once now on a unit (promise) |
+| `tg.setLive(on, unit?)` | Start keeping it updated on a unit. Stop on that unit, or on every unit if none is given. |
+| `tg.isLive(unit?)`, `tg.liveUnits()` | Whether it's kept updated on that unit (or on any), and on which units |
+| `tg.units()` | The Times Gates: `[{ id, name, ip, feed, alerts, … }]` |
 | `tg.every(ms, fn)`, `tg.after(ms, fn)`, `tg.clear(t)` | Timers that are cleaned up automatically when the plugin is turned off. Prefer these (or `poll`) over `setInterval`. |
 | `tg.makeCanvas(w, h)` | A canvas (`@napi-rs/canvas`, the same drawing API as the browser). `makeCanvas` is also a global, for shared render code. |
 | `tg.loadImage(urlOrBuffer)` | Load an image for drawing (downloads `http(s)` URLs) |
-| `tg.device.send(payload)` | Send any Divoom API command, e.g. `{ Command: 'Channel/SetBrightness', Brightness: 50 }`. Resolves to the device's reply. |
-| `tg.device.beep({ on, off, total })` | Beep (milliseconds) |
-| `tg.device.edgeRainbow(ms)` | Edge light rainbow for a while, then back to how it was |
-| `tg.device.stopLightShow()` | Stop the built-in light show (before driving the lights yourself) |
+| `tg.device.send(payload, unit?)` | Send any Divoom API command, e.g. `{ Command: 'Channel/SetBrightness', Brightness: 50 }`, to one unit or `'all'`. The default is all units. Resolves to the first reply. |
+| `tg.device.beep({ on, off, total }, unit?)` | Beep (milliseconds). The default is the units with alerts on. |
+| `tg.device.edgeRainbow(ms, unit?)` | Edge light rainbow for a while, then back to how it was. The default is the units with alerts on. |
+| `tg.device.stopLightShow(unit?)` | Stop the built-in light show before driving the lights yourself. The default is all units. |
 | `tg.mic.listen(fn, { sensitivity })` | Use the microphone. `fn({ t, level, db, beat, bpm })` runs about 43 times a second. `level` is 0–1, `db` is dBFS, `beat` is true on a detected beat, and `bpm` is the tempo or null. Sensitivity is 0–1 and sets how easily beats are detected. Returns a function that stops listening. The mic only runs while something listens, and it stops automatically when the plugin is turned off. |
 | `tg.mic.record(ms)` | Resolves to a WAV Buffer of the next `ms` of sound (mono, 16-bit, 22.05 kHz, up to 30 s). Nothing is saved to disk. |
 | `tg.mic.status()` | `{ running, error, device, level, db, bpm, … }` |
@@ -203,7 +218,7 @@ row goes at the end. That row appears only for plugins with `render`. Give eleme
 |---|---|
 | `p.preview = async () => ({ speed, parts })` | Draw for the page's tiles (same shape as `render()`). Used by the Preview button and when showing. Return `null` if there's nothing yet. |
 | `p.el(selector)` | An element inside this plugin's card |
-| `await p.api(path, body?)` | Call your routes: GET without a body, POST (JSON) with one. Throws the server's error message. |
+| `await p.api(path, body?)` | Call your routes: GET without a body, POST (JSON) with one. The selected Times Gate goes along as `ctx.unit`. Throws the server's error message. |
 | `p.onState(fn)` | `fn(state)` with your server `state()`, now and whenever it's polled (every 3 s) |
 | `p.show()`, `p.setLive(on)`, `p.isLive()` | Same as the standard buttons |
 | `p.runPreview()` | Run `p.preview` and animate the tiles |

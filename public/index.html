@@ -113,6 +113,7 @@
 <header>
   <h1>Times<span>Gate</span> Control</h1>
   <div class="row" style="margin:0">
+    <select id="unitSel" hidden aria-label="Which Times Gate" title="Which Times Gate this page controls" style="font-weight:600"></select>
     <input type="text" id="ip" placeholder="Device IP" size="13" aria-label="Device IP">
     <input type="password" id="token" placeholder="Token (optional)" size="13" aria-label="LocalToken (optional)"
            title="Optional. Only needed if your firmware rejects commands without a LocalToken">
@@ -342,6 +343,13 @@
       <button id="readConf">Read settings</button>
     </div>
     <div class="row"><button id="reboot" class="danger">Reboot device</button></div>
+    <h2 style="margin-top:16px">Times Gates</h2>
+    <div class="row">
+      <label for="unitName">Name</label><input type="text" id="unitName" maxlength="30" size="14" placeholder="e.g. Office">
+      <label title="Beeps and rainbow alerts from plugins (e.g. when Claude needs you) go to this Times Gate"><input type="checkbox" id="unitAlerts"> Alerts</label>
+      <button id="unitRemove" class="danger" hidden>Remove</button>
+    </div>
+    <p class="hint">To add another Times Gate, press <b>Find on network</b> and pick it. The list at the top then switches which one this page controls; each keeps its own screens, timer, score and lights.</p>
   </section>
 
   <section class="wide" id="buttons">
@@ -391,6 +399,8 @@ const store = {
 };
 
 // ---------- state ----------
+// unitId: which Times Gate this page controls (the server keeps the list; see engine.js).
+let unitId = store.get('unit') || null, unitsList = [];
 let deviceId = Number(store.get('deviceId')) || null;
 let hardware = Number(store.get('hardware')) || 400;
 let selected = new Set(JSON.parse(store.get('sel') || '[0,1,2,3,4]'));
@@ -418,13 +428,13 @@ const engineListeners = [];
 const onEngineState = fn => engineListeners.push(fn);
 function applyEngineState(s) { engineListeners.forEach(fn => { try { fn(s); } catch {} }); }
 async function engineCall(what, body = {}) {
-  const r = await fetch('/api/engine/' + what, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const r = await fetch('/api/engine/' + what, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ unit: unitId, ...body }) });
   const d = await r.json();
   if (!r.ok) { log('Server: ' + (d.error || r.status), 'e'); throw new Error(d.error || 'Server error'); }
   applyEngineState(d);
   return d;
 }
-async function pollEngine() { try { applyEngineState(await (await fetch('/api/engine/state')).json()); } catch {} }
+async function pollEngine() { try { applyEngineState(await (await fetch('/api/engine/state' + (unitId ? '?unit=' + unitId : ''))).json()); } catch {} }
 window.addEventListener('load', () => { pollEngine(); setInterval(pollEngine, 3000); });
 
 // ---------- transport ----------
@@ -438,7 +448,7 @@ async function cmd(payload, quiet) {
   const body = Number.isFinite(token) ? { ...payload, LocalToken: token } : payload;
   const short = JSON.stringify(payload, (k, v) => k === 'PicData' ? `<${v.length} chars>` : v);
   const r = await fetch('/api/device', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ip, hardware, payload: body }) });
+    body: JSON.stringify({ unit: unitId, ip, hardware, payload: body }) });
   const data = await r.json();
   // "DeviceToken is err" is reported by some firmware even though the command is still applied,
   // so treat it as a warning rather than a failure.
@@ -496,18 +506,85 @@ $('connect').onclick = async () => {
   try {
     const c = await cmd({ Command: 'Channel/GetAllConf' });
     if (c.Brightness !== undefined) { $('bright').value = c.Brightness; $('brightVal').textContent = c.Brightness; }
-    if (c.error_code === 0) fetch('/api/picid/reset', { method: 'POST' });
+    if (c.error_code === 0) fetch('/api/picid/reset', { method: 'POST', body: JSON.stringify({ unit: unitId }) });
+    pollEngine();  // a first Connect creates the unit on the server
   } catch (e) {
     if (e.message === 'no ip') setStatus('', 'Not connected');
     else setStatus('err', 'Could not reach device');
   }
 };
-function useDevice(d) {
-  $('ip').value = d.DevicePrivateIP; store.set('ip', d.DevicePrivateIP);
+// A Times Gate found on the network: switch to it if it's one we know, use it for a brand-new
+// setup, or add it as another unit.
+async function useDevice(d) {
+  const ip = d.DevicePrivateIP, known = unitsList.find(u => (u.deviceId && u.deviceId === d.DeviceId) || u.ip === ip);
+  if (known) {
+    if (!known.deviceId) await unitCall({ id: known.id, deviceId: d.DeviceId });
+    return selectUnit(known.id, { ...known, ip, deviceId: d.DeviceId, hardware: d.Hardware || known.hardware });
+  }
+  if (unitsList.length && unitsList.some(u => u.ip)) {
+    if (!confirm(`Add "${d.DeviceName}" (${ip}) as another Times Gate?`)) return;
+    const r = await unitCall({ add: { name: d.DeviceName, ip, hardware: d.Hardware || 400, deviceId: d.DeviceId } });
+    log(`Added ${d.DeviceName} — pick it from the list at the top to control it.`, 'o');
+    return selectUnit(r.unit, { ip, deviceId: d.DeviceId, hardware: d.Hardware || 400 });
+  }
+  // the first (or only) Times Gate
+  $('ip').value = ip; store.set('ip', ip);
   deviceId = d.DeviceId; store.set('deviceId', d.DeviceId);
   hardware = d.Hardware || 400; store.set('hardware', hardware);
   loadPresets();
+  $('connect').click();
+  if (unitsList[0]) unitCall({ id: unitsList[0].id, deviceId: d.DeviceId, name: unitsList[0].name === 'Times Gate' ? d.DeviceName : undefined });
 }
+
+// ---------- which Times Gate ----------
+async function unitCall(body) {
+  const r = await fetch('/api/units', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok) { log('Server: ' + (d.error || r.status), 'e'); throw new Error(d.error); }
+  unitsList = d.units; drawUnits();
+  return d;
+}
+function selectUnit(id, u = unitsList.find(x => x.id === id)) {
+  unitId = id; store.set('unit', id);
+  if (u) {
+    if (u.ip) { $('ip').value = u.ip; store.set('ip', u.ip); }
+    hardware = u.hardware || 400; store.set('hardware', hardware);
+    deviceId = u.deviceId || null; store.set('deviceId', deviceId || '');
+  }
+  stopTiles();
+  previews.forEach(c => c.getContext('2d').clearRect(0, 0, 128, 128));
+  drawUnits(); loadPresets(); pollEngine();
+  if ($('ip').value) $('connect').click();
+}
+function drawUnits() {
+  const sel = $('unitSel');
+  sel.hidden = unitsList.length < 2;
+  sel.innerHTML = '';
+  for (const u of unitsList) { const o = document.createElement('option'); o.value = u.id; o.textContent = u.name; sel.append(o); }
+  if (unitId) sel.value = unitId;
+  const cur = unitsList.find(u => u.id === unitId);
+  if (cur && document.activeElement !== $('unitName')) $('unitName').value = cur.name;
+  if (cur) $('unitAlerts').checked = cur.alerts;
+  $('unitRemove').hidden = unitsList.length < 2;
+}
+onEngineState(s => {
+  const before = JSON.stringify(unitsList);
+  unitsList = s.units || [];
+  if (s.unit && (!unitId || !unitsList.some(u => u.id === unitId))) { unitId = s.unit; store.set('unit', unitId); }
+  if (JSON.stringify(unitsList) !== before) drawUnits();
+  // Before there were units, the device id lived only in this browser: give it to the server once.
+  const cur = unitsList.find(u => u.id === unitId);
+  if (cur && !cur.deviceId && deviceId && unitsList.length === 1) unitCall({ id: cur.id, deviceId }).catch(() => {});
+});
+$('unitSel').onchange = () => selectUnit($('unitSel').value);
+$('unitName').onchange = () => unitId && unitCall({ id: unitId, name: $('unitName').value }).catch(() => {});
+$('unitAlerts').onchange = () => unitId && unitCall({ id: unitId, alerts: $('unitAlerts').checked }).catch(() => {});
+$('unitRemove').onclick = async () => {
+  const cur = unitsList.find(u => u.id === unitId);
+  if (!cur || !confirm(`Stop controlling "${cur.name}"? (You can add it again with Find on network.)`)) return;
+  await unitCall({ remove: cur.id }).catch(() => {});
+  selectUnit(unitsList[0] && unitsList[0].id);
+};
 $('discover').onclick = async () => {
   log('Asking Divoom for devices on this network…');
   const r = await cloud('Device/ReturnSameLANDevice', null, 'GET');
@@ -516,13 +593,14 @@ $('discover').onclick = async () => {
   box.innerHTML = '';
   box.hidden = false;
   if (!list.length) { box.innerHTML = '<div class="hint" style="padding:10px">No devices found. Type the IP shown in the Divoom app instead.</div>'; return; }
-  if (list.length === 1) { useDevice(list[0]); box.hidden = true; log(`Found ${list[0].DeviceName} at ${list[0].DevicePrivateIP}`, 'o'); $('connect').click(); return; }
+  if (list.length === 1 && !unitsList.some(u => u.ip)) { box.hidden = true; log(`Found ${list[0].DeviceName} at ${list[0].DevicePrivateIP}`, 'o'); useDevice(list[0]); return; }
   for (const d of list) {
+    const known = unitsList.find(u => (u.deviceId && u.deviceId === d.DeviceId) || u.ip === d.DevicePrivateIP);
     const b = document.createElement('button');
     b.innerHTML = '<b></b> <small></small>';
     b.querySelector('b').textContent = d.DeviceName;
-    b.querySelector('small').textContent = `${d.DevicePrivateIP} · id ${d.DeviceId}`;
-    b.onclick = () => { useDevice(d); box.hidden = true; $('connect').click(); };
+    b.querySelector('small').textContent = `${d.DevicePrivateIP} · ${known ? 'set up as "' + known.name + '"' : 'new — click to add'}`;
+    b.onclick = () => { box.hidden = true; useDevice(d); };
     box.append(b);
   }
 };
@@ -543,7 +621,7 @@ async function loadPresets() {
   const r = await cloud('Channel/Get5LcdInfoV2', { DeviceId: deviceId, DeviceType: 'LCD' });
   const list = (r.LcdIndependenceList || []).sort((a, b) => a.LcdIndependPos - b.LcdIndependPos);
   if (!list.length) return log('Could not load independent presets: ' + JSON.stringify(r), 'e');
-  const saved = store.get('preset');
+  const saved = store.get('preset.' + unitId) || store.get('preset');
   $('preset').innerHTML = '';
   for (const p of list) {
     const o = document.createElement('option');
@@ -552,7 +630,7 @@ async function loadPresets() {
   }
   if (saved && list.some(p => String(p.LcdIndependence) === saved)) $('preset').value = saved;
 }
-$('preset').onchange = () => store.set('preset', $('preset').value);
+$('preset').onchange = () => store.set('preset.' + unitId, $('preset').value);
 $('indepMode').onclick = () => {
   if (presetId() === undefined) return log('Use "Find on network" so the presets can load.', 'e');
   cmd({ Command: 'Channel/Set5LcdChannelType', ChannelType: 1, LcdIndependence: presetId() });
@@ -670,7 +748,7 @@ function tileJpeg(src, x) {
 }
 // Ids come from the server, which shares the counter with the engine so they always increase.
 async function nextPicId() {
-  const r = await fetch('/api/picid', { method: 'POST' });
+  const r = await fetch('/api/picid', { method: 'POST', body: JSON.stringify({ unit: unitId }) });
   const d = await r.json();
   if (!r.ok) throw new Error(d.error || 'Could not get a picture id');
   return d.id;
@@ -852,9 +930,16 @@ $('micTest').onclick = async () => showMic(await micCall({ test: 10 }));
 setInterval(async () => { try { showMic(await micCall()); } catch {} }, 1000);
 
 // ---------- start-up ----------
-if (deviceId) loadPresets();
-if ($('ip').value) $('connect').click();
-else if (!$('ip').value) $('discover').click();
+// The server knows each Times Gate's address, so a new browser or phone connects straight away;
+// only a brand-new setup asks Divoom's cloud to find one.
+// (After every script has loaded, since switching units uses anim.js.)
+window.addEventListener('load', async () => {
+  await pollEngine();
+  const cur = unitsList.find(u => u.id === unitId);
+  if (cur && cur.ip) selectUnit(cur.id);
+  else if ($('ip').value) { if (deviceId) loadPresets(); $('connect').click(); }
+  else $('discover').click();
+});
 </script>
 <script>const makeCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };</script>
 <script src="anim.js"></script>

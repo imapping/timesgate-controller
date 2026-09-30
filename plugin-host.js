@@ -43,11 +43,17 @@ function makeToolkit(rec) {
     // Saved settings/data, kept in data/<id>.json. Change tg.settings, then call tg.save().
     settings: readJson(dataFile, {}),
     save: () => fs.writeFileSync(dataFile, JSON.stringify(tg.settings, null, 2)),
-    // Screens
-    isLive: () => engine.state().feed === id,
-    update: () => engine.feedChanged(id),            // redraw if live (only changed screens are re-sent)
-    show: () => engine.sendOnce(id),                 // show once now
-    setLive: on => { if (on || tg.isLive()) engine.setOptions({ feed: on ? id : null }); },
+    // Screens. `unit` is a Times Gate's id (from ctx.unit / args.unit); leave it out for the first one.
+    units: () => engine.units(),                     // [{ id, name, ip, feed, … }]
+    liveUnits: () => engine.liveUnits(id),           // ids of the units keeping this plugin updated
+    isLive: unit => unit ? engine.liveUnits(id).includes(unit) : engine.liveUnits(id).length > 0,
+    update: () => engine.feedChanged(id),            // redraw on every unit showing it (only changed screens are re-sent)
+    show: unit => engine.unit(unit).sendOnce(id),    // show once now
+    // Start keeping it updated on a unit; stop on that unit, or (no unit) everywhere.
+    setLive(on, unit) {
+      if (on) return engine.setOptions(unit, { feed: id });
+      for (const u of unit ? [unit] : engine.liveUnits(id)) if (engine.liveUnits(id).includes(u)) engine.setOptions(u, { feed: null });
+    },
     // Timers that are cleared when the plugin is disabled or removed
     every: (ms, fn) => track(setInterval(guard(fn), ms)),
     after: (ms, fn) => { const t = track(setTimeout(() => { rec.timers.delete(t); guard(fn)(); }, ms)); return t; },
@@ -63,11 +69,12 @@ function makeToolkit(rec) {
       return loadImage(src);
     },
     // The device
+    // The devices. `unit`: one id, 'all', or left out (send: all units; alerts: units with alerts on).
     device: {
-      send: payload => engine.send(payload),         // any Divoom API command
-      beep: opts => engine.beep(opts),               // { on, off, total } in ms
-      edgeRainbow: ms => engine.edgeAlert(ms),       // rainbow edge light, then back to how it was
-      stopLightShow: () => engine.stopLightShow(),   // before driving the lights yourself
+      send: (payload, unit) => engine.sendTo(payload, unit),        // any Divoom API command; resolves to the first reply
+      beep: (opts, unit) => engine.beep(opts, unit),                // { on, off, total } in ms
+      edgeRainbow: (ms, unit) => engine.edgeAlert(ms, unit),        // rainbow edge light, then back to how it was
+      stopLightShow: unit => engine.stopLightShow(unit),            // before driving the lights yourself
     },
     // The microphone (runs only while something listens or records)
     mic: {
@@ -116,7 +123,7 @@ function start(rec) {
 }
 
 function unload(rec) {
-  if (engine.state().feed === rec.id) engine.setOptions({ feed: null });
+  engine.stopFeedEverywhere(rec.id);
   live(rec.id, false);
   try { rec.impl.stop?.(); } catch (e) { log(`Plugin ${rec.id} stop():`, e.message); }
   rec.timers.forEach(t => clearTimeout(t)); rec.timers.clear();
@@ -128,17 +135,19 @@ function unload(rec) {
 // ---------- what the engine asks ----------
 const active = id => { const r = plugins.get(id); return r && r.enabled && !r.error ? r : null; };
 const hasFeed = id => !!active(id)?.impl.render;
-async function render(id) {
+async function render(id, unit) {
   const r = active(id);
   if (!r?.impl.render) throw new Error(`No plugin "${id}" to show`);
-  return r.impl.render();
+  return r.impl.render(unit);
 }
-// Called by the engine when a plugin becomes (or stops being) what's kept updated on the screens.
+// Called by the engine when a plugin starts being kept updated on some unit (on), or on none any
+// more (off). Repeats are ignored, so live() and poll only run on the change.
 function live(id, on) {
   const r = plugins.get(id);
-  if (!r) return;
+  if (!r || !!r.isLive === !!on) return;
+  r.isLive = !!on;
   clearInterval(r.pollTimer); r.pollTimer = null;
-  if (on && !active(id)) return;
+  if (on && !active(id)) { r.isLive = false; return; }
   const poll = r.impl.poll;
   if (on && poll?.every && poll.run) {
     r.pollTimer = setInterval(async () => { try { await poll.run(); } catch (e) { r.tg.log('Error:', e.message); } }, Math.max(1000, poll.every));
@@ -146,18 +155,18 @@ function live(id, on) {
   try { r.impl.live?.(on); } catch (e) { r.tg?.log('live():', e.message); }
 }
 // The page changed the lights or started the light show: plugins driving the lights should stop.
-function pageCommand(payload) {
+function pageCommand(payload, unit) {
   for (const r of plugins.values()) {
     if (!active(r.id) || !r.impl.pageCommand) continue;
-    try { r.impl.pageCommand(payload); } catch (e) { r.tg.log('pageCommand():', e.message); }
+    try { r.impl.pageCommand(payload, unit); } catch (e) { r.tg.log('pageCommand():', e.message); }
   }
 }
 
-function states() {
+function states(unit) {
   const out = {};
   for (const r of plugins.values()) {
     if (!active(r.id)) continue;
-    try { out[r.id] = r.impl.state?.() || {}; } catch (e) { out[r.id] = { error: e.message }; }
+    try { out[r.id] = r.impl.state?.(unit) || {}; } catch (e) { out[r.id] = { error: e.message }; }
   }
   return out;
 }
@@ -175,7 +184,9 @@ async function route(req, res, url) {
   let body = {};
   if (raw && raw.length) { try { body = JSON.parse(raw.toString()); } catch { body = null; } }
   try {
-    const out = await handler({ req, res, url, query: url.searchParams, body, raw, local: deps.isLoopback(req) });
+    // ctx.unit: the Times Gate the page has selected (X-TG-Unit header, or ?unit=)
+    const unit = req.headers['x-tg-unit'] || url.searchParams.get('unit') || undefined;
+    const out = await handler({ req, res, url, query: url.searchParams, body, raw, local: deps.isLoopback(req), unit });
     if (res.headersSent || res.writableEnded) return true;
     if (out === undefined || out === null) { res.writeHead(204); res.end(); }
     else deps.sendJson(res, 200, out);
@@ -222,13 +233,20 @@ function actions() {
   }
   return out;
 }
+// args.unit: the Times Gate to act on (an id, or 'all'); left out = the first one.
 async function runAction(fullId, args = {}) {
   const [id, name] = String(fullId).split('.');
-  if (id === 'core') return engine.runCoreAction(fullId);
+  if (id === 'core') return engine.runCoreAction(fullId, args.unit);
   const r = active(id);
   if (!r) throw Object.assign(new Error(`No plugin "${id}"`), { status: 404 });
-  if (name === 'show' && r.impl.render) return engine.sendOnce(id);
-  if (name === 'live' && r.impl.render) return r.tg.setLive(args.on ?? !r.tg.isLive());
+  if (name === 'show' || name === 'live') {
+    const units = args.unit === 'all' ? engine.units().map(u => u.id) : [engine.unit(args.unit).id];
+    if (name === 'show' && r.impl.render) return Promise.all(units.map(u => r.tg.show(u)));
+    if (name === 'live' && r.impl.render) {
+      const on = args.on ?? !units.some(u => r.tg.isLive(u));  // toggle
+      return units.forEach(u => r.tg.setLive(on, u));
+    }
+  }
   const a = (r.impl.actions || {})[name];
   if (!a) throw Object.assign(new Error(`No action "${fullId}"`), { status: 404 });
   return a.run(args);
@@ -367,7 +385,7 @@ async function manage(req, res, url) {
   const body = isZip ? {} : JSON.parse(raw.toString() || '{}');
   switch (p) {
     case '/api/plugins/enable': setEnabled(body.id, body.on); break;
-    case '/api/plugins/action': return deps.sendJson(res, 200, { ok: true, result: await runAction(body.id, body.args) ?? null });
+    case '/api/plugins/action': return deps.sendJson(res, 200, { ok: true, result: await runAction(body.id, { unit: req.headers['x-tg-unit'], ...body.args }) ?? null });
     case '/api/plugins/pin':
       if (!deps.isLoopback(req)) return deps.sendJson(res, 403, { error: 'Set the PIN on the PC itself.' });
       setPin(body.pin); break;

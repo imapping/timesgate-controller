@@ -94,44 +94,66 @@ const server = http.createServer(async (req, res) => {
 
     // Button boxes / game controllers (buttons.js): status and which action each input runs.
     if (url.pathname === '/api/buttons') {
-      if (req.method === 'GET') return sendJson(res, 200, { ...buttons.status(url.searchParams.has('full')), actions: plugins.actions() });
+      const extra = () => ({ actions: plugins.actions(), units: engine.units() });
+      if (req.method === 'GET') return sendJson(res, 200, { ...buttons.status(url.searchParams.has('full')), ...extra() });
       const b = JSON.parse((await readBody(req)).toString() || '{}');
       if (b.forget) buttons.forget(b.forget);
       else if ('device' in b) buttons.useDevice(b.device);
       else if (b.input) buttons.setInput(b.input, b);
-      return sendJson(res, 200, { ...buttons.status(true), actions: plugins.actions() });
+      return sendJson(res, 200, { ...buttons.status(true), ...extra() });
     }
 
-    // Send a command to the device:  { ip, hardware?, payload: { Command: ..., LocalToken, ... } }
+    // Send a command to a device:  { unit?, ip, hardware?, payload: { Command: ..., LocalToken, ... } }
     // Hardware revision 402 listens on :9000/divoom_api; everything else (e.g. 400) on :80/post.
     if (req.method === 'POST' && url.pathname === '/api/device') {
-      const { ip, hardware, payload } = JSON.parse((await readBody(req)).toString() || '{}');
+      const { unit, ip, hardware, payload } = JSON.parse((await readBody(req)).toString() || '{}');
       if (!isPrivateIp(ip)) return sendJson(res, 400, { error: 'ip must be a private LAN IPv4 address' });
       if (!payload || typeof payload.Command !== 'string') return sendJson(res, 400, { error: 'payload.Command required' });
       // Through the engine, so it knows the device and sees what the page changes (see engine.js).
-      engine.learnDevice(ip, hardware, payload.LocalToken);
-      return sendJson(res, 200, await engine.send(payload, true));
+      const u = engine.learnDevice(unit, ip, hardware, payload.LocalToken);
+      return sendJson(res, 200, await u.send(payload, true));
     }
 
-    // Draw/SendHttpGif ids, shared by the page and the engine so they always increase.
-    if (req.method === 'POST' && url.pathname === '/api/picid') return sendJson(res, 200, { id: await engine.nextPicId() });
-    if (req.method === 'POST' && url.pathname === '/api/picid/reset') { engine.resetPicId(); return sendJson(res, 200, { ok: true }); }
+    // The Times Gates: list, add { add: { name, ip, hardware, deviceId } }, change { id, name?, alerts?, deviceId? },
+    // remove { remove: id }.
+    if (url.pathname === '/api/units') {
+      if (req.method === 'POST') {
+        const b = JSON.parse((await readBody(req)).toString() || '{}');
+        if (b.add) {
+          if (b.add.ip && !isPrivateIp(b.add.ip)) return sendJson(res, 400, { error: 'ip must be a private LAN IPv4 address' });
+          const u = engine.addUnit(b.add);
+          return sendJson(res, 200, { unit: u.id, units: engine.units() });
+        }
+        if (b.remove) engine.removeUnit(b.remove);
+        else if (b.id) engine.updateUnit(b.id, b);
+      }
+      return sendJson(res, 200, { units: engine.units() });
+    }
 
-    // Things that keep running without the page open (engine.js).
+    // Draw/SendHttpGif ids, shared by the page and the engine so they always increase (one counter per unit).
+    if (req.method === 'POST' && url.pathname.startsWith('/api/picid')) {
+      const { unit } = JSON.parse((await readBody(req)).toString() || '{}');
+      const u = engine.unit(unit);
+      if (url.pathname === '/api/picid') return sendJson(res, 200, { id: await u.nextPicId() });
+      if (url.pathname === '/api/picid/reset') { u.resetPicId(); return sendJson(res, 200, { ok: true }); }
+    }
+
+    // Things that keep running without the page open (engine.js). Each is for one unit ({ unit }, or the first).
     if (url.pathname.startsWith('/api/engine/')) {
-      if (req.method === 'GET' && url.pathname === '/api/engine/state') return sendJson(res, 200, engine.state());
+      if (req.method === 'GET' && url.pathname === '/api/engine/state') return sendJson(res, 200, engine.state(url.searchParams.get('unit')));
       if (req.method !== 'POST') { res.writeHead(405); return res.end(); }
       const body = JSON.parse((await readBody(req)).toString() || '{}');
+      const u = engine.unit(body.unit);
       switch (url.pathname) {
-        case '/api/engine/options': engine.setOptions(body); break;           // { feed: plugin id or null }
-        case '/api/engine/send': await engine.sendOnce(body.what); break;     // { what: plugin id }
+        case '/api/engine/options': engine.setOptions(u.id, body); break;     // { feed: plugin id or null }
+        case '/api/engine/send': await u.sendOnce(body.what); break;          // { what: plugin id }
         case '/api/engine/timer':                                             // { ms, label } or { stop: true }
-          if (body.stop) await engine.timerStop(); else engine.timerStart(Number(body.ms), body.label); break;
+          if (body.stop) await u.timerStop(); else u.timerStart(Number(body.ms), body.label); break;
         case '/api/engine/lightshow':                                         // { bpm, mode, color } or { stop: true }
-          if (body.stop) engine.stopLightShow(); else engine.startLightShow(body); break;
+          if (body.stop) u.stopLightShow(); else u.startLightShow(body); break;
         default: res.writeHead(404); return res.end();
       }
-      return sendJson(res, 200, engine.state());
+      return sendJson(res, 200, engine.state(u.id));
     }
 
     // Divoom cloud helpers (LAN discovery, clock face lists):  POST /api/cloud/<Path>  { method?, body? }
@@ -172,7 +194,7 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(405); res.end();
   } catch (e) {
-    sendJson(res, 502, { error: e.name === 'TimeoutError' ? 'Device did not respond (timeout)' : e.message });
+    sendJson(res, e.status || 502, { error: e.name === 'TimeoutError' ? 'Device did not respond (timeout)' : e.message });
   }
 });
 

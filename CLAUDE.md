@@ -5,8 +5,12 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
 
 - `server.js`: HTTP server. Relays device commands, static files, and plugin routes.
 - `engine.js`: everything that runs with the page closed. Sends every device command, keeps
-  a plugin's screens updated, and runs the timer flash, light show and edge alerts. State is in
-  `engine.json`.
+  a plugin's screens updated, and runs the timer flash, light show and edge alerts.
+  - It supports several Times Gates ("units", `u1`, `u2`…). Each `Unit` has its own feed,
+    picture ids, timer, score, lights and brightness.
+  - The page sends `unit` with every call, as the `X-TG-Unit` header for plugin routes.
+    Leaving it out means the first unit.
+  - State is in `engine.json`.
 - `plugin-host.js`: loads `plugins/*`, the `tg` toolkit, install/remove, and actions.
 - `mic.js`: the shared microphone. It uses ffmpeg on Windows and arecord on a Pi, and runs only while something uses it.
 - `buttons.js`: reads the USB button box through node-hid, and runs the action assigned to each button.
@@ -23,6 +27,6 @@ Device notes:
 - A "DeviceToken is err" reply still means the command worked.
 - The device never pushes events, so there is no way to read its buttons.
 - Sending a picture to any screen makes the device leave its timer, tool or clock display.
-- `Draw/SendHttpGif` PicIDs must keep increasing. They come from `engine.nextPicId()`, shared
-  with the page through `POST /api/picid`.
+- `Draw/SendHttpGif` PicIDs must keep increasing, per device. They come from each unit's
+  `nextPicId()`, shared with the page through `POST /api/picid { unit }`.
 - Use `127.0.0.1`, not `localhost`: resolving `localhost` is slow on Windows.

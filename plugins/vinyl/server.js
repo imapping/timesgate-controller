@@ -24,12 +24,14 @@ module.exports = tg => {
 
   let active = false, until = 0, phase = 'off', status = 'Off', stopMic = null, offTimer = null;
   let track = null, misses = 0, retryAt = 0;
+  let showOn;                    // the Times Gate it was started from (shown there if autoShow)
   let loudSince = 0, quietSince = 0, avgDb = null;
   const artCache = new Map();
 
   const used = () => { if (s.usage.month !== monthKey()) { s.usage = { month: monthKey(), count: 0 }; tg.save(); } return s.usage.count; };
 
-  function turnOn() {
+  function turnOn(unit) {
+    showOn = unit;
     if (!s.token) throw Object.assign(new Error('Add your AudD API token first.'), { status: 400 });
     if (used() >= s.cap) throw Object.assign(new Error(`This month's limit of ${s.cap} requests is used up.`), { status: 400 });
     active = true; phase = 'waiting'; misses = 0; retryAt = 0; loudSince = quietSince = 0;
@@ -39,7 +41,7 @@ module.exports = tg => {
     status = 'Waiting for music…';
     if (!stopMic) stopMic = tg.mic.listen(onFrame);
     tg.log('Listening for records.');
-    if (s.autoShow) tg.setLive(true);
+    if (s.autoShow) tg.setLive(true, showOn);
   }
   function turnOff(reason) {
     active = false; phase = 'off'; status = reason || 'Off';
@@ -108,7 +110,7 @@ module.exports = tg => {
       misses = 0;
       matched(d.result);
       if (!active) phase = 'off';
-      if (manual && s.autoShow && !tg.isLive()) tg.setLive(true);
+      if (manual && s.autoShow && !tg.isLive()) tg.setLive(true, showOn);
     } catch (e) {
       if (cancelled()) return;
       tg.log('Identify failed:', e.message);
@@ -116,7 +118,8 @@ module.exports = tg => {
       phase = 'waiting'; retryAt = Date.now() + RETRY_MS; status = 'Problem: ' + e.message + ' — trying again in 30 s.';
     }
   }
-  function identifyNow() {
+  function identifyNow(unit) {
+    if (!active) showOn = unit;
     if (!s.token) throw Object.assign(new Error('Add your AudD API token first.'), { status: 400 });
     if (phase === 'identifying') throw Object.assign(new Error('Already identifying — give it a few seconds.'), { status: 409 });
     if (used() >= s.cap) throw Object.assign(new Error(`This month's limit of ${s.cap} requests is used up.`), { status: 400 });
@@ -168,9 +171,9 @@ module.exports = tg => {
     render: async () => renderVinyl(track, track ? await artFor(track.art) : null, active ? status : 'Switched off'),
     state,
     routes: {
-      'POST /on': () => { turnOn(); return state(); },
+      'POST /on': ctx => { turnOn(ctx.unit); return state(); },
       'POST /off': () => { turnOff(); return state(); },
-      'POST /now': () => { identifyNow(); return state(); },
+      'POST /now': ctx => { identifyNow(ctx.unit); return state(); },
       'POST /options': ctx => {
         const b = ctx.body || {};
         if (typeof b.token === 'string') { localOnly(ctx); s.token = b.token.trim(); }
@@ -190,8 +193,8 @@ module.exports = tg => {
       },
     },
     actions: {
-      listen: { label: 'identify records on/off', run: ({ on } = {}) => ((on ?? !active) ? turnOn() : turnOff()) },
-      now: { label: 'identify what\'s playing now', run: () => identifyNow() },
+      listen: { label: 'identify records on/off', run: ({ on, unit } = {}) => ((on ?? !active) ? turnOn(unit === 'all' ? undefined : unit) : turnOff()) },
+      now: { label: 'identify what\'s playing now', run: ({ unit } = {}) => identifyNow(unit === 'all' ? undefined : unit) },
     },
     stop: () => { active = false; stopMic = null; },
   };

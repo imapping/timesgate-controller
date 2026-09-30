@@ -42,7 +42,8 @@ function btDraw(d) {
     if (d.device) $('btDevice').value = d.device.key;
   }
   const ids = Object.keys(d.inputs).sort((a, b) => btOrder(a).localeCompare(btOrder(b)));
-  const known = JSON.stringify([ids, d.inputs, d.actions.map(a => a.id)]);
+  const units = d.units || [];
+  const known = JSON.stringify([ids, d.inputs, d.actions.map(a => a.id), units.map(u => u.id + u.name)]);
   if (known !== btKnown && !document.activeElement?.closest?.('#btList')) {
     btKnown = known;
     const box = $('btList');
@@ -63,7 +64,20 @@ function btDraw(d) {
       x.textContent = '×'; x.title = 'Forget this input';
       x.onclick = () => btCall({ forget: id }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
       const lp = document.createElement('small'); lp.textContent = 'press'; const lh = document.createElement('small'); lh.textContent = 'hold';
-      row.append(name, lp, press, lh, hold, x);
+      row.append(name, lp, press, lh, hold);
+      // With more than one Times Gate: which one this button acts on.
+      if (units.length > 1) {
+        const on = document.createElement('select');
+        on.title = 'Which Times Gate this button controls';
+        on.style.flex = '0 1 150px';
+        on.innerHTML = '';
+        units.forEach((u, i) => { const o = document.createElement('option'); o.value = i ? u.id : ''; o.textContent = 'on ' + u.name; on.append(o); });
+        const all = document.createElement('option'); all.value = 'all'; all.textContent = 'on all of them'; on.append(all);
+        on.value = b.unit && b.unit !== units[0].id ? b.unit : '';
+        on.onchange = () => btCall({ input: id, unit: on.value }).catch(e => log('Buttons: ' + e.message, 'e'));
+        row.append(on);
+      }
+      row.append(x);
       box.append(row);
     }
   }

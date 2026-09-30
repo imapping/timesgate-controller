@@ -16,9 +16,11 @@ const TG = (() => {
       // An element inside this plugin's panel (CSS selector).
       el: q,
       // Call this plugin's server routes: GET without a body, POST with one. Resolves to the JSON reply.
+      // The selected Times Gate goes along as the X-TG-Unit header (ctx.unit in the route).
       async api(path, body) {
-        const r = await fetch(`/api/${id}/${String(path).replace(/^\/+/, '')}`, body === undefined ? {} :
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const headers = unitId ? { 'X-TG-Unit': unitId } : {};
+        const r = await fetch(`/api/${id}/${String(path).replace(/^\/+/, '')}`, body === undefined ? { headers } :
+          { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const d = r.status === 204 ? {} : await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || `Server error ${r.status}`);
         return d;

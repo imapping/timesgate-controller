@@ -11,7 +11,7 @@ try { HID = require('node-hid'); } catch {}
 
 const CONF_FILE = path.join(__dirname, 'data', 'buttons.json');
 const HOLD_MS = 800;
-let conf = { device: null, inputs: {} };   // inputs: { id: { name, press, hold } }
+let conf = { device: null, inputs: {} };   // inputs: { id: { name, press, hold, unit } } — unit: a Times Gate id, 'all', or null (the first)
 try { conf = { ...conf, ...JSON.parse(fs.readFileSync(CONF_FILE, 'utf8')) }; } catch {}
 const save = () => { fs.mkdirSync(path.dirname(CONF_FILE), { recursive: true }); fs.writeFileSync(CONF_FILE, JSON.stringify(conf, null, 2)); };
 const log = (...a) => console.log(new Date().toLocaleTimeString(), '[buttons]', ...a);
@@ -105,8 +105,9 @@ function released(id, st) {
 }
 function fire(id, action, kind) {
   if (!action || !runAction) return;
-  log(`${conf.inputs[id].name} (${kind}) → ${action}`);
-  Promise.resolve().then(() => runAction(action)).catch(e => log(`${action} failed:`, e.message));
+  const unit = conf.inputs[id].unit || undefined;
+  log(`${conf.inputs[id].name} (${kind}) → ${action}${unit ? ' on ' + unit : ''}`);
+  Promise.resolve().then(() => runAction(action, { unit })).catch(e => log(`${action} failed:`, e.message));
 }
 
 // ---------- page API ----------
@@ -122,6 +123,7 @@ function setInput(id, o) {
   if (typeof o.name === 'string') b.name = o.name.trim().slice(0, 40) || defaultName(id);
   if ('press' in o) b.press = o.press || null;
   if ('hold' in o) b.hold = o.hold || null;
+  if ('unit' in o) b.unit = o.unit || null;
   save();
 }
 function forget(id) { delete conf.inputs[id]; save(); }
