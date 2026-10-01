@@ -55,6 +55,27 @@ Notes:
 - With learned tracks, listening works even with no service set up or the monthly limit used up:
   known tracks are recognised, others are "not recognised".
 
+## Choosing the record yourself (no service needed)
+
+With your Discogs collection set up, you can tell Vinyl what you're about to play instead of having
+it recognised. Open **Choose the record yourself** in the card, find the record, and click its side.
+Then press Start listening and lower the needle.
+- Each time a track starts after a gap, it's named as the next track on that side, straight away,
+  with the album, cover and position. No clip is sent anywhere.
+- Discogs' track lengths are used to tell a quiet passage from the end of a track, and to move on
+  when tracks run together without a gap.
+- The card lists the side's tracks with what's playing and what's next. If it gets out of step (the
+  needle went down mid-side, a track was skipped), click **This is playing** on the right track.
+- Tracks named this way are learned like any others, so next time the record is recognised by
+  itself, with nothing chosen.
+- When the side finishes, choose the next one. With no service set up and nothing learned,
+  listening stops there.
+- Tracks already learned are still recognised from their sound first, and the chosen side follows
+  along from the recognised track.
+
+This works with no AudD or ACRCloud account at all: Discogs and a turntable are enough. The list
+of records in your collection can be seen by anyone who can open the controller's page.
+
 ## Your Discogs collection
 
 If your records are listed on [Discogs](https://www.discogs.com), each identified song is matched to
@@ -66,7 +87,7 @@ In the card's settings, under **Your collection**, enter your Discogs username a
 token (Discogs → Settings → Developers → **Generate new token**), from the computer running the
 controller or one it trusts. The token stays on the controller and is only sent to api.discogs.com.
 
-- The list of records and each record's track list are saved in `data/vinyl-discogs.json`. Track
+- The list of records and each record's track list (with track lengths) are saved in `data/vinyl-discogs.json`. Track
   lists load one a second (Discogs allows 60 requests a minute), so a big collection takes a few
   minutes the first time. Songs are matched as soon as their record's track list is loaded.
 - The collection is checked for new records once a day, or with **Refresh**.

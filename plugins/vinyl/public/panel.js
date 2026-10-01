@@ -62,6 +62,7 @@
     $p('#vnClean').checked = s.cleanClip;
     $p('#vnClipSec').value = String(s.clipSec || 12);
     if (document.activeElement !== $p('#vnRpm')) $p('#vnRpm').value = s.rpm;
+    drawPick();
     // Own recognition: what has been learned so far.
     const L = s.learn;
     $p('#vnLearn').checked = L.on; $p('#vnLearn').disabled = !L.available;
@@ -101,6 +102,7 @@
       } else if (t.album) tr.children[1].append(t.album);
       tr.children[2].textContent = new Date(t.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + (t.own ? ' · own' : '');
       if (t.own) tr.children[2].title = 'Recognised from your own recordings, without a request';
+      if (t.picked) { tr.children[2].append(' · chosen'); tr.children[2].title = 'Named from the record and side you chose'; }
       // Your note on this play (it skips, crackles…), kept in the listening log.
       const marks = TG.noteText(t);
       if (marks) { const m = document.createElement('span'); m.className = 'play-note'; m.textContent = marks; tr.children[1].append(m); }
@@ -207,6 +209,65 @@
   $p('#vnDcChange').onclick = () => { changingDc = !changingDc; if (st) apply(st); };
   $p('#vnDcRefresh').onclick = () => call('discogs', {});
   $p('#vnDcRemove').onclick = () => { if (confirm('Remove your Discogs details and the saved copy of your collection from the controller?')) { $p('#vnDcUser').value = ''; call('options', { discogs: {} }); } };
+  // Choosing the record by hand: find it in the Discogs collection and pick a side; then its track list is shown,
+  // with what's playing and what's next.
+  let records = null, recordsFor = null;
+  const sideName = side => (side === '' ? 'Whole record' : /^Disc /.test(side) ? side : 'Side ' + side);
+  function drawPick() {
+    if (!st) return;
+    const c = st.cue, d = st.discogs;
+    $p('#vnPickNow').hidden = !c;
+    $p('#vnPickFind').hidden = !d.set || !d.records;
+    if (!d.set) $p('#vnPickHint').textContent = 'Add your Discogs collection under Settings → Your collection first. Then you can pick the record and side you\u2019re about to play, and its track list names each track: no recognition service needed.';
+    if (c) {
+      $p('#vnPickTitle').textContent = `${c.artist} — ${c.album}${c.side === '' ? '' : ' · ' + sideName(c.side)}`;
+      const box = $p('#vnPickTracks'), playing = st.phase === 'playing' && st.track ? c.index - 1 : -1, key = JSON.stringify([c.id, c.side, c.index, playing]);
+      if (box.dataset.key !== key) {
+        box.dataset.key = key;
+        box.innerHTML = '<table class="wx"></table>';
+        c.tracks.forEach((t, i) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td style="width:3.5em" class="hint"></td><td></td><td class="hint"></td><td style="width:1%;padding-right:0"><button class="note-btn">This is playing</button></td>';
+          tr.children[0].textContent = t.pos;
+          tr.children[1].textContent = t.title;
+          if (i === playing) tr.children[1].style.fontWeight = '700';
+          tr.children[2].textContent = i === playing ? '▶ playing' : i === c.index ? 'next' : i < c.index ? 'played' : '';
+          tr.querySelector('button').onclick = () => call('cue', { index: i });
+          box.firstChild.append(tr);
+        });
+      }
+    }
+    if ($p('#vnPick').open && d.set && recordsFor !== d.loaded) loadRecords();
+  }
+  async function loadRecords() {
+    recordsFor = st.discogs.loaded;
+    try { records = (await p.api('records')).records; drawRecords(); } catch (e) { log('Vinyl: ' + e.message, 'e'); }
+  }
+  function drawRecords() {
+    const box = $p('#vnPickList'), words = $p('#vnPickQ').value.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!records) return;
+    const found = records.filter(r => { const hay = `${r.artist} ${r.title}`.toLowerCase(); return words.every(w => hay.includes(w)); });
+    box.innerHTML = found.length ? '<table class="wx"></table>' : `<div class="hint">${records.length ? 'Nothing found.' : 'No records loaded yet.'}</div>`;
+    for (const r of found.slice(0, 12)) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td></td><td></td><td style="white-space:nowrap;text-align:right;padding-right:0"></td>';
+      tr.children[0].textContent = r.title + (r.year ? ` (${r.year})` : '');
+      tr.children[1].textContent = r.artist;
+      for (const sd of r.sides) {
+        const b = document.createElement('button');
+        b.className = 'note-btn'; b.style.marginLeft = '6px';
+        b.textContent = sideName(sd.side); b.title = `${sd.tracks} ${sd.tracks === 1 ? 'track' : 'tracks'}`;
+        b.onclick = () => call('cue', { id: r.id, side: sd.side });
+        tr.children[2].append(b);
+      }
+      box.firstChild.append(tr);
+    }
+    if (found.length > 12) box.append(Object.assign(document.createElement('div'), { className: 'hint', textContent: `Showing 12 of ${found.length}: type more to narrow it down.` }));
+  }
+  $p('#vnPickQ').oninput = drawRecords;
+  $p('#vnPick').ontoggle = () => drawPick();
+  $p('#vnPickStop').onclick = () => call('cue', {});
+
   // The learned tracks (the latest 50, or those matching the search), each with a Forget button.
   function drawLearned(tracks) {
     const box = $p('#vnLearnList');

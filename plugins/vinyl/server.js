@@ -86,6 +86,11 @@ module.exports = tg => {
   const discogs = discogsFor(tg, s);   // the user's record collection (see discogs.js)
   const prints = printsFor(tg, s);     // tracks learned from earlier plays (see prints.js)
   const canOwn = () => s.learn && prints.state().tracks > 0;   // it can recognise something without a service
+  // A side chosen by hand from the Discogs collection: its tracks name what plays, in order, without
+  // a service. { id, album, artist, year, cover, link, side, tracks: [{ pos, where, title, artist, dur }], index }
+  // index: the track the next music will be.
+  let cue = null, cueEnded = false;   // cueEnded: the chosen side ran out while listening
+  const canGo = () => canOwn() || !!cue;
   // Start the listening log with the songs identified before it existed (once).
   if (!s.historyLogged && tg.listening.available) {
     for (const h of [...s.history].reverse()) {
@@ -99,7 +104,7 @@ module.exports = tg => {
   // The last clip sent to AudD and its answer, for checking what it hears (memory only, replaced each time).
   let lastClip = null;   // { wav, at, outcome }
   let showOn;                    // the Times Gate it was started from (shown there if autoShow)
-  let loudSince = 0, quietSince = 0, avgDb = null, power = 0;  // power: smoothed loudness (linear)
+  let loudSince = 0, quietSince = 0, soundSince = 0, avgDb = null, power = 0;  // power: smoothed loudness (linear)
   const artCache = new Map();
 
   // Monthly request counters, one per service (reset on the 1st).
@@ -192,8 +197,8 @@ module.exports = tg => {
     showOn = unit;
     failed = {};
     const why = blocked();
-    if (why && !canOwn()) throw Object.assign(new Error(why), { status: 400 });
-    active = true; phase = 'waiting'; misses = 0; retryAt = 0; loudSince = quietSince = 0; power = 0;
+    if (why && !canGo()) throw Object.assign(new Error(why), { status: 400 });
+    active = true; phase = 'waiting'; misses = 0; retryAt = 0; loudSince = quietSince = soundSince = 0; power = 0; cueEnded = false;
     until = Date.now() + s.autoOffMin * 60000;
     tg.clear(offTimer);
     offTimer = tg.after(s.autoOffMin * 60000, () => turnOff(`Switched off after ${s.autoOffMin} minutes.`));
@@ -221,18 +226,22 @@ module.exports = tg => {
     const loud = smoothDb > LOUD_DB;
     if (loud) { loudSince ||= now; avgDb = avgDb == null ? smoothDb : avgDb * 0.995 + smoothDb * 0.005; }
     else loudSince = 0;
-    if (quiet) quietSince ||= now; else quietSince = 0;
+    if (quiet) { quietSince ||= now; soundSince = 0; } else { quietSince = 0; soundSince ||= now; }
     const music = loudSince && now - loudSince > MUSIC_MS;
     const gap = quietSince && now - quietSince > GAP_MS;
     segAdd(f, quiet, gap, now);
 
     if (phase === 'identifying') return;
-    if ((phase === 'playing' && gap && now - track.identifiedAt > MIN_TRACK_MS) || (phase === 'gaveup' && gap)) {
+    // A chosen track's length is known: a gap well before its end is a quiet passage, not the next track.
+    const early = phase === 'playing' && track.expectMs && now - track.identifiedAt < 0.6 * track.expectMs;
+    if (early && seg && seg.endAt != null && seg.resumed != null) segLabel(track);   // (so keep recording it as one track)
+    if ((phase === 'playing' && gap && !early && now - track.identifiedAt > MIN_TRACK_MS) || (phase === 'gaveup' && gap)) {
       phase = 'waiting'; status = 'Between tracks — waiting for the next one…';
       return;
     }
-    if (phase === 'playing' && now > track.checkAt && music) return void identify();
-    if (phase === 'waiting' && music && now >= retryAt) identify();
+    if (phase === 'playing' && now > track.checkAt && music) return void identify(false, true);
+    // (Steady sound for a second, so a track isn't named in the gap before it or by a click.)
+    if (phase === 'waiting' && music && soundSince && now - soundSince > 1000 && now >= retryAt) identify();
   }
 
   // ---- learning: the sound of each track is kept (in memory, at 11 kHz) from its start until the
@@ -266,8 +275,8 @@ module.exports = tg => {
     for (const c of g.chunks) { all.set(c, at); at += c.length; }
     prints.learn(all.subarray(0, g.endAt ?? g.n), g.label);
   }
-  // t: what the sound playing now was just identified as.
-  function segLabel(t) {
+  // t: what the sound playing now was just identified as. fix: it corrects the name given before.
+  function segLabel(t, fix) {
     if (!seg) return;
     if (seg.endAt != null && seg.resumed != null) {   // identified after a gap
       if (seg.label && !seg.mixed && sameSong(seg.label, t)) { seg.endAt = seg.resumed = null; return; }   // a quiet passage: the same track
@@ -278,7 +287,7 @@ module.exports = tg => {
       seg = { chunks: rest, n, label: t, mixed: false, endAt: null, endTime: 0, resumed: null };
       return;
     }
-    if (!seg.label) seg.label = t;
+    if (!seg.label || fix) seg.label = t;
     else if (!sameSong(seg.label, t)) seg.mixed = true;
   }
 
@@ -289,8 +298,25 @@ module.exports = tg => {
     } catch { return false; }
   }
 
+  // The next track of the chosen side, as a match. recheck (no gap was heard): only once the current
+  // track's time is up, otherwise 'stay'. null when the side has no more tracks.
+  function cueTake(recheck) {
+    if (recheck && track && !(track.expectMs && Date.now() - track.identifiedAt > track.expectMs)) return 'stay';
+    if (cue.index >= cue.tracks.length) { cue = null; cueEnded = true; return null; }
+    const tr = cue.tracks[cue.index++];
+    return { title: tr.title, artist: tr.artist, album: cue.album, year: cue.year, durationMs: tr.dur ? tr.dur * 1000 : null, posMs: 0,
+      service: 'the record you chose', picked: true, rec: { album: cue.album, year: cue.year, pos: tr.pos, where: tr.where, cover: cue.cover, link: cue.link } };
+  }
+  // A track recognised from your own recordings: the chosen side carries on from it, or is dropped if it's another record.
+  function cueSync(title) {
+    if (!cue) return;
+    const i = cue.tracks.findIndex(t => t.title.toLowerCase() === String(title).toLowerCase());
+    if (i < 0) cue = null; else cue.index = i + 1;
+  }
+
   // manual: "Identify now" — skips the music / gap / Spotify checks, and works while switched off (once).
-  async function identify(manual = false) {
+  // recheck: the current track's expected end has passed with no gap heard.
+  async function identify(manual = false, recheck = false) {
     const cancelled = () => !manual && !active;
     phase = 'identifying';
     try {
@@ -299,13 +325,17 @@ module.exports = tg => {
         return;
       }
       const why = blocked();
-      if (why && !canOwn()) { if (active) return turnOff('Stopped: ' + why); phase = 'off'; status = why; return; }
-      status = 'Listening to identify…';
-      const raw = await tg.mic.record(s.clipSec * 1000);
+      if (why && !canGo()) { if (active) return turnOff(cueEnded ? 'Stopped: the side you chose has finished.' : 'Stopped: ' + why); phase = 'off'; status = why; return; }
+      let raw = null;
+      if (!cue || canOwn()) {   // (with a chosen side and nothing learned, there's nothing to listen for)
+        status = 'Listening to identify…';
+        raw = await tg.mic.record(s.clipSec * 1000);
+      }
       // Your own recordings first: a track learned from an earlier play needs no request.
-      const own = s.learn ? prints.match(raw, fixSpeed) : null;
+      const own = s.learn && raw ? prints.match(raw, fixSpeed) : null;
       if (own) {
         if (cancelled()) return;
+        cueSync(own.title);
         lastClip = { wav: raw, at: Date.now(), outcome: `recognised from your own recordings: ${own.title} — ${own.artist} (score ${own.score})`, cleaned: false, speedFixed: null };
         s.localHits++; tg.save();
         misses = 0;
@@ -316,6 +346,23 @@ module.exports = tg => {
         if (manual && s.autoShow && !tg.isLive()) tg.setLive(true, showOn);
         return;
       }
+      // A side chosen by hand: its next track is what's playing. No service is asked.
+      if (cue) {
+        if (cancelled()) return;
+        const res = cueTake(recheck);
+        if (res === 'stay') { track.checkAt = Date.now() + 60000; phase = 'playing'; return; }
+        if (res) {
+          if (raw) lastClip = { wav: raw, at: Date.now(), outcome: `not in your own recordings · named from the record you chose: ${res.title}`, cleaned: false, speedFixed: null };
+          misses = 0;
+          matched(res).catch(e => tg.log('Saving the match failed:', e.message));
+          if (!active) phase = 'off';
+          if (manual && s.autoShow && !tg.isLive()) tg.setLive(true, showOn);
+          return;
+        }
+        tg.log('The chosen side has finished.');   // (carry on as usual)
+        if (why && !canOwn()) { phase = active ? 'gaveup' : 'off'; status = 'That side has finished. Choose the next one.'; return; }
+      }
+      if (!raw) { status = 'Listening to identify…'; raw = await tg.mic.record(s.clipSec * 1000); }
       const sped = speedRatio() !== 1 ? fixSpeed(raw, speedRatio()) : raw;
       const wav = s.cleanClip ? cleanClip(sped) : sped;
       lastClip = { wav, at: Date.now(), outcome: 'sending…', cleaned: s.cleanClip, speedFixed: speedRatio() !== 1 ? s.rpm : null };
@@ -371,7 +418,7 @@ module.exports = tg => {
     if (phase === 'identifying') throw Object.assign(new Error('Already identifying — give it a few seconds.'), { status: 409 });
     if (!active) failed = {};   // a fresh try
     const why = blocked();
-    if (why && !canOwn()) throw Object.assign(new Error(why), { status: 400 });
+    if (why && !canGo()) throw Object.assign(new Error(why), { status: 400 });
     identify(true);
   }
 
@@ -385,11 +432,12 @@ module.exports = tg => {
   async function matched(res) {
     const now = Date.now(), pos = res.posMs;
     const t = { title: tidy(res.title), artist: tidy(res.artist), album: tidy(res.album), year: res.year, art: res.art, link: res.link,
-      spotify: res.spotify, service: res.service, own: !!res.own, isrc: res.isrc, label: res.label, identifiedAt: now };
+      spotify: res.spotify, service: res.service, own: !!res.own, picked: !!res.picked, isrc: res.isrc, label: res.label, identifiedAt: now,
+      expectMs: res.picked && res.durationMs ? res.durationMs / speedRatio() : null };   // how long a chosen track should last on this deck
     const same = track && track.title === t.title && track.artist === t.artist;
     // The record in the Discogs collection with this song: its album, year and cover replace the
     // service's (which often names a compilation), and it says where the song is on the record.
-    const own = same ? null : discogs.match(t.title, t.artist, now);
+    const own = res.rec || (same ? null : discogs.match(t.title, t.artist, now));
     if (own) {
       t.album = own.album; t.year = own.year || t.year; t.pos = own.pos; t.where = own.where; t.discogs = own.link;
       if (own.cover) { t.artAlt = t.art; t.art = own.cover; }
@@ -398,16 +446,16 @@ module.exports = tg => {
     const checkAt = duration => now + Math.max(same ? 2 * 60000 : 60000,
       (duration && pos != null && duration < 20 * 60000 ? (duration - pos) / (res.realTime ? 1 : speedRatio()) - s.clipSec * 1000 : 4 * 60000) + 15000);   // a fast deck ends songs sooner
     t.checkAt = checkAt(res.durationMs);
-    segLabel(t);   // (for learning: this is what's playing)
+    segLabel(t, res.fix);   // (for learning: this is what's playing)
     track = t; phase = 'playing';
     status = `${t.title} — ${t.artist}`;
     if (same) return;
-    tg.log(`Identified ${t.own ? 'from' : 'by'} ${t.service}: ${t.title} — ${t.artist}${own ? ` [${own.album}, ${own.pos || 'no position'}]` : ''} (AudD ${used()}/${s.cap}, ACRCloud ${acrUsed()}/${s.acrCap} this month)`);
+    tg.log(`Identified ${t.own || t.picked ? 'from' : 'by'} ${t.service}: ${t.title} — ${t.artist}${own ? ` [${own.album}, ${own.pos || 'no position'}]` : ''} (AudD ${used()}/${s.cap}, ACRCloud ${acrUsed()}/${s.acrCap} this month)`);
     tg.update();
     if (t.artAlt !== undefined && !(await artFor(t.art))) { t.art = t.artAlt; delete t.artAlt; }   // the Discogs cover didn't load
     const extra = !t.art || !t.spotify ? await fillIn(t) : {};
     if (!res.durationMs && extra.duration) t.checkAt = checkAt(extra.duration);
-    s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, pos: t.pos, discogs: t.discogs, own: t.own || undefined, at: now }, ...s.history].slice(0, 20);
+    s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, pos: t.pos, discogs: t.discogs, own: t.own || undefined, picked: t.picked || undefined, at: now }, ...s.history].slice(0, 20);
     // The all-time listening log (data/listening.db).
     try {
       tg.listening.add({ at: now, title: t.title, artist: t.artist, album: t.album, year: t.year, duration_ms: res.durationMs || extra.duration,
@@ -506,7 +554,8 @@ module.exports = tg => {
   const state = () => ({
     active, phase, status, until: active ? until : null,
     provider: s.provider, auddSet: SERVICES.audd.ready(), acrSet: SERVICES.acr.ready(), acrHost: s.acr.host,
-    hasToken: chosen().length > 0 || canOwn(),   // the chosen service(s) can be used, or there are learned tracks
+    hasToken: chosen().length > 0 || canGo(),   // a service can be used, or there are learned tracks or a chosen side
+    cue: cue && { id: cue.id, album: cue.album, artist: cue.artist, side: cue.side, index: cue.index, tracks: cue.tracks.map(t => ({ pos: t.pos, title: t.title, dur: t.dur })) },
     learn: prints.state(),
     used: used(), cap: s.cap, acrUsed: acrUsed(), acrCap: s.acrCap,
     autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec, rpm: s.rpm,
@@ -547,6 +596,23 @@ module.exports = tg => {
         if (CLIP_SECS.includes(b.clipSec)) s.clipSec = b.clipSec;
         if (Number.isFinite(b.rpm) && b.rpm >= 30 && b.rpm <= 37) s.rpm = Math.round(b.rpm * 100) / 100;
         tg.save();
+        return state();
+      },
+      // The records in the Discogs collection, for choosing what's about to play.
+      'GET /records': () => ({ records: discogs.records() }),
+      // Choose a side: { id, side }. Its tracks then name what plays, in order. { index } says which track is
+      // playing now (or is next, when nothing's playing). {} stops using it.
+      'POST /cue': ctx => {
+        const b = ctx.body || {};
+        if (b.id != null) {
+          const side = discogs.side(b.id, String(b.side ?? ''));
+          if (!side) throw Object.assign(new Error('That record or side isn\'t in the saved collection.'), { status: 404 });
+          cue = { ...side, index: 0 }; cueEnded = false;
+          tg.log(`Chosen: ${cue.album}${cue.side ? ', side ' + cue.side : ''} (${cue.tracks.length} tracks).`);
+        } else if (Number.isInteger(b.index) && cue) {
+          cue.index = Math.max(0, Math.min(cue.tracks.length - 1, b.index));
+          if (phase === 'playing') matched({ ...cueTake(false), fix: true }).catch(e => tg.log('Saving the match failed:', e.message));
+        } else cue = null;
         return state();
       },
       // The tracks learned from earlier plays (the latest 50; ?q= filters by title, artist or album).

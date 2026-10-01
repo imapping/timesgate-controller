@@ -39,6 +39,21 @@
 <div data-tg-controls></div>
 <div id="vnHistory"></div>
 
+<details class="vn-settings" id="vnPick">
+  <summary>Choose the record yourself</summary>
+  <p class="hint" id="vnPickHint" style="margin-top:4px">Pick the record and side you're about to play from your Discogs collection, and its track list names each
+    track as it plays: no recognition service needed. Choose it before you lower the needle, then press Start listening.</p>
+  <div id="vnPickNow" hidden>
+    <div class="row"><b id="vnPickTitle"></b><button id="vnPickStop">Stop using this</button></div>
+    <div id="vnPickTracks"></div>
+    <p class="hint">If it gets out of step (the needle went down mid-side, or a track was skipped), click <b>This is playing</b> on the right track.</p>
+  </div>
+  <div id="vnPickFind">
+    <div class="row"><input type="text" id="vnPickQ" placeholder="Find an artist or album in your collection" style="width:320px" aria-label="Find a record"></div>
+    <div id="vnPickList"></div>
+  </div>
+</details>
+
 <details class="vn-settings" id="vnInput" open>
   <summary>Input and live listening</summary>
   <div data-tg-mic style="margin-top:4px"></div>

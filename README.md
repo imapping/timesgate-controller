@@ -61,7 +61,8 @@ even 2% fast isn't recognised, so you enter its measured speed and clips are cor
 Vinyl also **learns the records you play**: each track is fingerprinted as it plays, and next time it's recognised on the
 controller itself, with no request to the service.
 If your records are listed on [Discogs](https://www.discogs.com), add your username and a token and each song is
-matched to the record you own: the right album, year and cover, and which side and track it is.
+matched to the record you own: the right album, year and cover, and which side and track it is. You can also skip the recognition
+service altogether: **choose the record and side** you're about to play from your collection, and its track list names each track.
 
 ![The Vinyl card with a side of Brothers In Arms matched to the Discogs collection, each song with its album and position](docs/screenshots/vinyl-discogs.png)
 

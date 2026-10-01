@@ -40,12 +40,30 @@ function wherePos(pos) {
   return p;
 }
 
+// "4:32" → 272 (seconds), or undefined
+function seconds(v) {
+  const p = String(v || '').trim().split(':').map(Number);
+  return p.length >= 2 && p.length <= 3 && p.every(Number.isFinite) ? p.reduce((a, n) => a * 60 + n, 0) || undefined : undefined;
+}
+// The side a position is on: "B3" → "B", "2-05" → "Disc 2", "7" → "" (the whole record)
+function sideOf(pos) {
+  const p = String(pos || '').trim();
+  let m;
+  if ((m = /^([A-Za-z]{1,2})\.?\d*[a-z]?$/.exec(p))) return m[1].toUpperCase();
+  if ((m = /^(\d+)[-.]\d+$/.exec(p))) return 'Disc ' + Number(m[1]);
+  return '';
+}
+// A Discogs artist name as people write it: "Beatles, The" → "The Beatles", "Billy Joel (2)" → "Billy Joel"
+const shown = v => String(v || '').replace(/\s*\(\d+\)$/, '').replace(/^(.*), The$/i, 'The $1');
+
 module.exports = (tg, s) => {
   s.discogs ??= { user: '', token: '' };
   const file = path.join(tg.dir, '..', '..', 'data', 'vinyl-discogs.json');
-  let cache = { user: '', syncedAt: 0, releases: {} };
+  let cache = { v: 2, user: '', syncedAt: 0, releases: {} };
   try { cache = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
   cache.releases ||= {};
+  // (v2 added each track's length: track lists saved before that are loaded again.)
+  if (cache.v !== 2) { for (const r of Object.values(cache.releases)) delete r.tracks; cache.v = 2; }
   let index = null, syncing = false, error = '', pumpTimer = null, stopped = false, unsaved = 0;
   let last = null;   // { id, at }: the record the last song was matched to
 
@@ -88,7 +106,7 @@ module.exports = (tg, s) => {
             tracks: old?.tracks, fails: old?.tracks ? undefined : old?.fails };
         }
       }
-      cache = { user, syncedAt: Date.now(), releases: seen };
+      cache = { v: 2, user, syncedAt: Date.now(), releases: seen };
       index = null; store();
       tg.log(`Discogs: ${Object.keys(seen).length} records in ${user}'s collection, ${pending().length} track lists to load.`);
     } catch (e) {
@@ -109,7 +127,7 @@ module.exports = (tg, s) => {
         const d = await get(`${API}/releases/${rel.id}`);
         if (cache.releases[rel.id] !== rel) return pump();   // the list changed meanwhile
         rel.tracks = (d.tracklist || []).filter(t => t.title && (!t.type_ || t.type_ === 'track'))
-          .map(t => ({ pos: String(t.position || ''), title: String(t.title), artists: t.artists?.length ? t.artists.map(a => a.name) : undefined }));
+          .map(t => ({ pos: String(t.position || ''), title: String(t.title), dur: seconds(t.duration), artists: t.artists?.length ? t.artists.map(a => a.name) : undefined }));
         delete rel.fails;
         if (!rel.cover) { const img = (d.images || []).find(i => COVER.test(i.uri || '')); if (img) rel.cover = img.uri; }
         index = null; error = '';
@@ -163,12 +181,12 @@ module.exports = (tg, s) => {
       if (!USER.test(user)) throw Object.assign(new Error('That doesn\'t look like a Discogs username.'), { status: 400 });
       if (!token && user !== s.discogs.user) throw Object.assign(new Error('Add your Discogs personal access token too.'), { status: 400 });
       s.discogs = { user, token: token || s.discogs.token };
-      if (cache.user !== user) { cache = { user: '', syncedAt: 0, releases: {} }; index = null; }
+      if (cache.user !== user) { cache = { v: 2, user: '', syncedAt: 0, releases: {} }; index = null; }
       error = '';
       sync().catch(() => {});
     } else {
       s.discogs = { user: '', token: '' };
-      cache = { user: '', syncedAt: 0, releases: {} }; index = null; error = ''; last = null;
+      cache = { v: 2, user: '', syncedAt: 0, releases: {} }; index = null; error = ''; last = null;
       try { fs.unlinkSync(file); } catch {}
     }
   }
@@ -186,8 +204,28 @@ module.exports = (tg, s) => {
       .map(r => ({ id: r.id, title: r.title, year: r.year, artists: r.artists, formats: r.formats, tracks: r.tracks ? r.tracks.map(t => `${t.pos} ${t.title}`) : null, fails: r.fails }));
   }
 
+  // Every record whose track list is loaded, for choosing one by hand: [{ id, title, artist, year, sides: [{ side, tracks }] }]
+  function records() {
+    if (!ready() || cache.user !== s.discogs.user) return [];
+    return Object.values(cache.releases).filter(r => r.tracks?.length).map(r => {
+      const sides = [];
+      for (const t of r.tracks) { const k = sideOf(t.pos); const e = sides.find(x => x.side === k); if (e) e.tracks++; else sides.push({ side: k, tracks: 1 }); }
+      return { id: r.id, title: r.title, artist: r.artists.map(shown).join(', '), year: r.year, sides };
+    }).sort((a, b) => a.artist.localeCompare(b.artist) || a.title.localeCompare(b.title));
+  }
+  // One side of a record, in playing order, or null:
+  //   { id, album, artist, year, cover, link, side, tracks: [{ pos, where, title, artist, dur }] }
+  function side(id, which) {
+    const r = ready() && cache.user === s.discogs.user ? cache.releases[id] : null;
+    const tracks = (r?.tracks || []).filter(t => sideOf(t.pos) === which);
+    if (!tracks.length) return null;
+    const artist = r.artists.map(shown).join(', ');
+    return { id: r.id, album: r.title, artist, year: r.year || null, cover: r.cover, link: 'https://www.discogs.com/release/' + r.id, side: which,
+      tracks: tracks.map(t => ({ pos: t.pos, where: wherePos(t.pos), title: t.title, artist: t.artists ? t.artists.map(shown).join(', ') : artist, dur: t.dur || null })) };
+  }
+
   return {
-    match, configure, wherePos, find,
+    match, configure, wherePos, find, records, side,
     refresh: () => { if (!ready()) throw Object.assign(new Error('Add your Discogs username and token first.'), { status: 400 }); sync().catch(() => {}); },
     // (The token never goes to the page.)
     state: () => {
