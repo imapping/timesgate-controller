@@ -44,11 +44,15 @@ function devices() {
   return new Promise(resolve => {
     const arecord = findArecord();
     if (arecord) {
+      // arecord lists each mic several ways (hw, plughw, default, sysdefault…). Keep one per mic:
+      // plughw, which converts the rate and channels to what the controller asks for.
       return execFile(arecord, ['-L'], (err, out) => {
         const list = [];
         (out || '').split('\n').forEach((line, i, all) => {
-          if (/^(default|plughw|sysdefault|hw):/.test(line) || line === 'default')
-            list.push({ id: line.trim(), name: `${(all[i + 1] || '').trim()} (${line.trim()})` });
+          const m = /^plughw:CARD=([^,\s]+),DEV=(\d+)/.exec(line);
+          if (!m) return;
+          const desc = (all[i + 1] || '').trim().split(',')[0] || m[1];  // "Yeti Stereo Microphone, USB Audio" → the first part
+          list.push({ id: line.trim(), name: desc + (m[2] !== '0' ? ` (input ${Number(m[2]) + 1})` : '') });
         });
         resolve(list);
       });
@@ -229,8 +233,8 @@ let autoDevice = null, foreignDevice = false;
 const pickDevice = () => devices().then(list => {
   if (!list.length) return;
   foreignDevice = !!conf.device && !list.some(d => d.id === conf.device);
-  const mics = WIN ? list : list.filter(d => d.id.startsWith('plughw:'));  // plughw converts the rate and channels
-  const pick = mics.find(d => /yeti|microphone|mic|usb/i.test(d.name)) || (WIN ? list[0] : null);
+  // (On Linux the list only holds capture devices, one plughw entry per mic.)
+  const pick = list.find(d => /yeti|microphone|mic|usb/i.test(d.name)) || list[0];
   autoDevice = pick ? pick.id : WIN ? autoDevice : null;
 });
 pickDevice();
