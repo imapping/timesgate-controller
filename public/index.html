@@ -249,6 +249,10 @@
       <button id="micTest">Test 10 s</button>
     </div>
     <div class="row"><span id="micStatus" class="hint" style="margin:0"></span></div>
+    <div class="row">
+      <button id="micLive" title="Hear what the microphone hears, on this computer (only from the computer running the controller, or one it trusts)">Listen live</button>
+      <span id="micLiveInfo" class="hint" style="margin:0"></span>
+    </div>
     <p class="hint">Plugins such as the music visualizer listen through this. It only runs while one of them needs it, and nothing is recorded to disk.</p>
   </section>
 
@@ -941,6 +945,47 @@ function showMic(s) {
 })();
 $('micDevice').onchange = async () => showMic(await micCall({ device: $('micDevice').value }));
 $('micTest').onclick = async () => showMic(await micCall({ test: 10 }));
+// Listen live: the server streams the mic as a never-ending WAV (trusted computers only). The page
+// reads it as it arrives and plays it through Web Audio, about a quarter of a second behind.
+// (An <audio> element buffers endless WAVs unpredictably, so this does the playing itself.)
+let micLive = null;   // { ctx, ctrl } while listening
+function micLiveStop(msg) {
+  if (micLive) { micLive.ctrl.abort(); micLive.ctx.close().catch(() => {}); micLive = null; }   // closing the stream lets the mic stop
+  $('micLive').textContent = 'Listen live'; $('micLiveInfo').textContent = msg || '';
+}
+$('micLive').onclick = async () => {
+  if (micLive) return micLiveStop();
+  const live = micLive = { ctx: new AudioContext(), ctrl: new AbortController() };
+  $('micLive').textContent = 'Stop listening'; $('micLiveInfo').textContent = 'Connecting…';
+  try {
+    const r = await fetch('/api/mic/stream', { signal: live.ctrl.signal });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Server error ' + r.status);
+    $('micLiveInfo').textContent = 'Live.';
+    const reader = r.body.getReader(), RATE = 22050;
+    let skip = 44, rest = new Uint8Array(0), next = 0;   // skip the WAV header
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done || micLive !== live) break;
+      let bytes = new Uint8Array(rest.length + value.length);
+      bytes.set(rest); bytes.set(value, rest.length);
+      if (skip) { const k = Math.min(skip, bytes.length); bytes = bytes.subarray(k); skip -= k; }
+      const n = bytes.length >> 1;
+      rest = bytes.slice(n * 2);
+      if (!n) continue;
+      const view = new DataView(bytes.buffer, bytes.byteOffset, n * 2), buf = live.ctx.createBuffer(1, n, RATE), ch = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) ch[i] = view.getInt16(i * 2, true) / 32768;
+      const src = live.ctx.createBufferSource();
+      src.buffer = buf; src.connect(live.ctx.destination);
+      // Queue each piece after the last; (re)start with a small cushion if we ran dry or fell behind.
+      const now = live.ctx.currentTime;
+      if (next < now + 0.03 || next > now + 1) next = now + 0.25;
+      src.start(next); next += buf.duration;
+    }
+    if (micLive === live) micLiveStop('The stream ended.');
+  } catch (e) {
+    if (micLive === live) micLiveStop(e.name === 'AbortError' ? '' : "Couldn't listen: " + e.message);
+  }
+};
 setInterval(async () => { try { showMic(await micCall()); } catch {} }, 1000);
 
 // ---------- start-up ----------

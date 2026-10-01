@@ -9,7 +9,8 @@ working with the page closed.
   now playing, Claude Code status, GitHub repository stats, a music visualizer and vinyl record
   recognition.
   They can be installed or removed from the page.
-- A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD and/or ACRCloud)
+- A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD and/or ACRCloud).
+  You can also listen to it live from your PC.
 - A **USB button box** (an arcade joystick kit) or game controller: map each button to any action
 - **Several Times Gates**, each with its own screens and settings
 

@@ -181,13 +181,27 @@ function onData(buf) {
   if (!inUse()) stop();
 }
 
-function wav(pcm) {
-  const h = Buffer.alloc(44);
-  h.write('RIFF', 0); h.writeUInt32LE(36 + pcm.length, 4); h.write('WAVE', 8);
+// A WAV header for 16-bit mono at RATE. With no length (a live stream) it says "as long as possible".
+function wavHeader(bytes) {
+  const h = Buffer.alloc(44), n = bytes ?? 0xFFFFFFFF - 36;
+  h.write('RIFF', 0); h.writeUInt32LE(36 + n, 4); h.write('WAVE', 8);
   h.write('fmt ', 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
   h.writeUInt32LE(RATE, 24); h.writeUInt32LE(RATE * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
-  h.write('data', 36); h.writeUInt32LE(pcm.length, 40);
-  return Buffer.concat([h, pcm]);
+  h.write('data', 36); h.writeUInt32LE(n, 40);
+  return h;
+}
+function wav(pcm) { return Buffer.concat([wavHeader(pcm.length), pcm]); }
+
+// Streams the live sound to an HTTP response as a never-ending WAV, until the listener disconnects.
+// If they fall behind (a slow connection), sound is dropped rather than queued.
+function stream(req, res) {
+  res.writeHead(200, { 'Content-Type': 'audio/wav', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.write(wavHeader());
+  const off = listen(f => {
+    if (res.writableLength > 256 * 1024) return;
+    res.write(Buffer.from(new Uint8Array(f.samples.buffer, f.samples.byteOffset, f.samples.byteLength)));   // a copy: samples is reused
+  }, 'live listening', { samples: true });
+  req.on('close', off);
 }
 
 // ---------- API ----------
@@ -242,4 +256,4 @@ pickDevice();
 if (!WIN) setInterval(pickDevice, 30 * 1000).unref();
 const device = () => (conf.device && !foreignDevice ? conf.device : autoDevice);
 
-module.exports = { listen, record, status, devices, setDevice, RATE, makeAnalyser, HOP };
+module.exports = { listen, record, stream, status, devices, setDevice, RATE, makeAnalyser, HOP };

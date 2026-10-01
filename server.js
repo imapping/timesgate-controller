@@ -102,6 +102,12 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, mic.status());
     }
     if (req.method === 'GET' && url.pathname === '/api/mic/devices') return sendJson(res, 200, await mic.devices());
+    // Listen to the microphone live (a never-ending WAV). It's a live room mic, so only from this
+    // computer or a trusted one, never from phones or anything else on the network.
+    if (req.method === 'GET' && url.pathname === '/api/mic/stream') {
+      if (!isLoopback(req)) return sendJson(res, 403, { error: 'Live listening only works from the computer running the controller, or one it trusts.' });
+      return mic.stream(req, res);
+    }
 
     // Button boxes / game controllers (buttons.js): status and which action each input runs.
     if (url.pathname === '/api/buttons') {
