@@ -1,0 +1,59 @@
+<style>
+  /* Listening reports. One accent hue for every bar (they all measure plays); numbers and names stay in the text colours. */
+  .rp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 4px 0 16px; }
+  .rp-tile { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--field); min-width: 0; }
+  .rp-tile small { display: block; font-size: 12px; color: var(--muted); }
+  .rp-tile b { display: block; font-size: 24px; font-weight: 600; line-height: 1.25; }
+  .rp-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px 28px; margin-bottom: 18px; }
+  .rp-cols h3, .rp-h3 { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
+  .rp-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; margin-bottom: 9px; min-width: 0; }
+  .rp-row .rp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; min-width: 0; }
+  .rp-row .rp-name a { color: inherit; }
+  .rp-row .rp-sub { color: var(--muted); font-size: 12px; }
+  .rp-row .rp-n { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .rp-row .rp-track { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .rp-row .rp-track i { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+  .rp-empty { color: var(--muted); font-size: 13px; }
+  /* Bar charts: thin bars standing on a baseline, 2px apart, with a tooltip on hover or tap. */
+  .rp-chart { position: relative; }
+  .rp-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--line); }
+  .rp-bars > div { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; justify-content: center; cursor: default; }
+  .rp-bars > div > i { display: block; width: 100%; max-width: 22px; border-radius: 4px 4px 0 0; background: var(--accent); }
+  .rp-bars > div:hover > i, .rp-bars > div.on > i { filter: brightness(1.25); }
+  .rp-bars > div.rp-zero > i { height: 0 !important; }
+  .rp-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .rp-max { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .rp-tip { position: absolute; top: 0; transform: translateX(-50%); padding: 3px 8px; border-radius: 6px; font-size: 12px; white-space: nowrap;
+            background: var(--ink); color: var(--panel); pointer-events: none; z-index: 2; }
+  .rp-recent td { overflow: hidden; text-overflow: ellipsis; }
+</style>
+
+<div class="row">
+  <div class="seg" id="rpRange" title="The period the card and the screens cover">
+    <button data-range="7d">7 days</button><button data-range="30d">30 days</button><button data-range="365d">12 months</button><button data-range="all">All time</button>
+  </div>
+  <label for="rpSource">From</label>
+  <select id="rpSource" title="Which plays to count"><option value="all">everything</option></select>
+  <span id="rpInfo" class="hint" style="margin:0"></span>
+</div>
+
+<div id="rpTiles" class="rp-tiles"></div>
+
+<div class="rp-cols">
+  <div><h3>Top artists</h3><div id="rpArtists"></div></div>
+  <div><h3>Top songs</h3><div id="rpSongs"></div></div>
+  <div><h3>Top albums</h3><div id="rpAlbums"></div></div>
+</div>
+
+<div class="rp-cols">
+  <div><h3 id="rpSeriesTitle">Plays by day</h3><div id="rpSeries" class="rp-chart"></div></div>
+  <div><h3>When you listen</h3><div id="rpHours" class="rp-chart"></div></div>
+</div>
+
+<h3 class="rp-h3">Latest plays</h3>
+<div id="rpRecent"></div>
+
+<div data-tg-controls></div>
+<p class="hint">From the listening log: records identified by Vinyl, and songs played on Spotify for at least 30 seconds. Listening time uses each
+  song's length (an average for songs without one). Album names come from the recognition service, which sometimes names a compilation.
+  Screens: plays and listening time · top artists · top songs · plays over time · the latest play.</p>

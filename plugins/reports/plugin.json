@@ -1,0 +1,11 @@
+{
+  "id": "reports",
+  "name": "Listening reports",
+  "version": "1.0.0",
+  "description": "What you've been listening to, from the listening log (records identified by Vinyl and songs played on Spotify): top artists and songs, plays over time, and when you listen.",
+  "author": "TimesGate",
+  "order": 45,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"],
+  "liveLabel": "Keep it updated"
+}

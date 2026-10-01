@@ -6,8 +6,8 @@ working with the page closed.
 
 - Pictures, animations, banners, effects, scenes, a timer, a scoreboard and light shows
 - **Plugins** for everything that shows live data. The built-in ones are Weather, Spotify
-  now playing, Claude Code status, GitHub repository stats, a music visualizer and vinyl record
-  recognition.
+  now playing, Claude Code status, GitHub repository stats, a music visualizer, vinyl record
+  recognition and listening reports.
   They can be installed or removed from the page.
 - A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD and/or ACRCloud).
   You can also listen to it live from your PC, or, for a direct connection such as a turntable, from
@@ -308,7 +308,8 @@ Some plugins use online services. Each user sets up their own account or key; no
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.
 
 Every song Vinyl identifies, and every song you play on Spotify (once it has played for 30 seconds),
-is saved to a **listening log**, an SQLite database at `data/listening.db`, ready for reports.
+is saved to a **listening log**, an SQLite database at `data/listening.db`. The **Listening reports**
+plugin shows it: top artists and songs, plays over time, and when you listen.
 
 Settings, logins and tokens are saved in `data/`, which is never served by the web server and is
 excluded from git.

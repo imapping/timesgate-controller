@@ -15,6 +15,7 @@ lines. The built-in plugins are fuller, real-world examples:
 | `plugins/weather` | Use a free API with no key |
 | `plugins/visualizer` | Use the microphone and drive the lights |
 | `plugins/vinyl` | Record audio clips, call a paid API within a monthly budget, and run an on-request mode that switches itself off |
+| `plugins/reports` | Query the listening log with SQL, and draw ranked lists and bar charts on the page and the screens |
 | `plugins/github` | Check an API on a timer even when not on the screens, keep a token server-side, and celebrate events with an animation, beep and rainbow edge |
 
 ## Folder layout
