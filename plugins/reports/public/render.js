@@ -73,7 +73,7 @@ function rpDrawChart(c, d) {
   const pts = d.series.points.slice(-14);
   rpBack(c, d.series.unit === 'month' ? 'PLAYS BY MONTH' : 'PLAYS BY DAY');
   if (!pts.length || !pts.some(p => p.n)) { rpText(c, 'Nothing yet', 64, 70, 12, RP.muted); return; }
-  const max = Math.max(...pts.map(p => p.n)), gap = 2, w = Math.max(3, Math.floor((116 - gap * (pts.length - 1)) / pts.length));
+  const max = Math.max(...pts.map(p => p.n)), gap = 2, w = Math.min(14, Math.max(3, Math.floor((116 - gap * (pts.length - 1)) / pts.length)));   // thin, even with few points
   const x0 = Math.round((128 - (pts.length * (w + gap) - gap)) / 2), base = 104, H = 70;
   pts.forEach((p, i) => {
     const h = p.n ? Math.max(3, Math.round(p.n / max * H)) : 0, x = x0 + i * (w + gap);

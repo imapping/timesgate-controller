@@ -58,6 +58,13 @@ even 2% fast isn't recognised, so you enter its measured speed and clips are cor
 
 ![The Vinyl card's settings: service, monthly limits, switch-off time, turntable speed, clip length and clean-up](docs/screenshots/vinyl-settings.png)
 
+**Listening reports:** everything Vinyl identifies and Spotify plays is saved to a listening log. The
+reports show top artists and songs, plays over time and when you listen, on the page and on the screens.
+
+![Listening reports on the five screens: plays, top artists, top songs, plays by day, last played](docs/screenshots/screens-reports.png)
+
+![The Listening reports card: headline figures, top artists, songs and albums, charts and latest plays](docs/screenshots/reports.png)
+
 **Button box:** give each button a press and a hold action.
 
 ![Buttons card mapping joystick and buttons to actions](docs/screenshots/buttons.png)
