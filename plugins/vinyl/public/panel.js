@@ -41,7 +41,13 @@
     for (const t of s.history) {
       const tr = document.createElement('tr');
       tr.innerHTML = '<td></td><td></td><td class="hint"></td>';
-      tr.children[0].textContent = t.title;
+      // The song on Spotify (saved with each match), or a Spotify search for older ones.
+      const link = document.createElement('a');
+      link.href = (t.spotify || '').startsWith('https://open.spotify.com/') ? t.spotify
+        : 'https://open.spotify.com/search/' + encodeURIComponent(`${t.title} ${t.artist}`);
+      link.target = '_blank'; link.rel = 'noopener'; link.title = 'Open in Spotify'; link.style.color = 'inherit';
+      link.textContent = t.title;
+      tr.children[0].append(link);
       tr.children[1].textContent = t.artist + (t.album ? ' — ' + t.album : '');
       tr.children[2].textContent = new Date(t.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
       h.firstChild.append(tr);

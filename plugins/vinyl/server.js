@@ -139,7 +139,7 @@ module.exports = tg => {
     const [m, sec] = String(res.timecode || '').split(':').map(Number);
     const pos = Number.isFinite(m) && Number.isFinite(sec) ? (m * 60 + sec) * 1000 : null;
     const t = { title: res.title, artist: res.artist, album: res.album || '', year: (res.release_date || '').slice(0, 4),
-      art, link: res.song_link || null, identifiedAt: now };
+      art, link: res.song_link || null, spotify: res.spotify?.external_urls?.spotify || null, identifiedAt: now };
     const same = track && track.title === t.title && track.artist === t.artist;
     // Check again around the track's end if no gap is heard (e.g. tracks that run into each other).
     const left = duration && pos != null && duration < 20 * 60000 ? duration - pos - CLIP_MS : 4 * 60000;
@@ -148,7 +148,7 @@ module.exports = tg => {
     status = `${t.title} — ${t.artist}`;
     if (!same) {
       tg.log(`Identified: ${t.title} — ${t.artist} (${used()}/${s.cap} this month)`);
-      s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, at: now }, ...s.history].slice(0, 20);
+      s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, at: now }, ...s.history].slice(0, 20);
       tg.save();
       tg.update();
     }
