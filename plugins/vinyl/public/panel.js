@@ -45,7 +45,7 @@
     // The last clip sent to AudD, to hear what it heard.
     $p('#vnClipRow').style.display = s.lastClip ? '' : 'none';
     if (s.lastClip) {
-      $p('#vnClipInfo').textContent = `(${new Date(s.lastClip.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${s.lastClip.cleaned ? ', cleaned up' : ''}): ${s.lastClip.outcome}`;
+      $p('#vnClipInfo').textContent = `(${new Date(s.lastClip.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${s.lastClip.cleaned ? ', cleaned up' : ''}${s.lastClip.speedFixed ? `, corrected from ${s.lastClip.speedFixed} RPM` : ''}): ${s.lastClip.outcome}`;
       $p('#vnClipLink').href = '/api/vinyl/clip?t=' + s.lastClip.at;
     }
     if (document.activeElement !== $p('#vnCap')) $p('#vnCap').value = s.cap;
@@ -54,6 +54,7 @@
     $p('#vnAutoShow').checked = s.autoShow;
     $p('#vnClean').checked = s.cleanClip;
     $p('#vnClipSec').value = String(s.clipSec || 12);
+    if (document.activeElement !== $p('#vnRpm')) $p('#vnRpm').value = s.rpm;
     const h = $p('#vnHistory');
     h.innerHTML = s.history.length ? '<table class="wx"></table>' : '';
     for (const t of s.history) {
@@ -161,6 +162,7 @@
   $p('#vnAutoOff').onchange = e => call('options', { autoOffMin: Number(e.target.value) });
   $p('#vnCap').onchange = e => call('options', { cap: Number(e.target.value) });
   $p('#vnAutoShow').onchange = e => call('options', { autoShow: e.target.checked });
+  $p('#vnRpm').onchange = e => call('options', { rpm: Number(e.target.value) });
   $p('#vnClipSec').onchange = e => call('options', { clipSec: Number(e.target.value) });
   $p('#vnClean').onchange = e => call('options', { cleanClip: e.target.checked });
 })();

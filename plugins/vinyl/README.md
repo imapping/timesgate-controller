@@ -25,6 +25,14 @@ one it trusts). The keys stay on the controller and are never sent to the page.
 - **AudD, then ACRCloud if no match:** asks AudD first, and only asks ACRCloud when AudD finds
   nothing. Each service has its own monthly limit in the card.
 
+## Turntable speed
+
+Fingerprint matching fails if a turntable runs even 2% fast or slow, though nobody hears that
+(some decks, like the Sony PS-LX310BT, often run at about 34.1 instead of 33⅓). Measure yours at 33
+with a turntable speed app (a phone lying on the platter) and enter the reading in the card's
+**Turntable speed at 33** box: clips are then slowed or sped up to the right speed before they're
+sent. Better still, adjust the deck itself if it has a speed adjuster, and leave the box at 33.33.
+
 How it keeps to the monthly budgets (AudD 1,000 and ACRCloud 300 requests by default, adjustable):
 - **Only on request:** press **Start listening**. It switches itself off after the time you choose,
   1 hour by default.

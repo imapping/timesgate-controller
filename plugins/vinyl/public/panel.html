@@ -49,6 +49,8 @@
   <label><input type="checkbox" id="vnAutoShow"> Show on the Times Gate when I start</label>
   <label>Clip</label>
   <select id="vnClipSec" title="How much sound is sent for each try (AudD uses about 12 seconds at most). Each try is one request per service asked."><option value="10">10 s</option><option value="12">12 s</option></select>
+  <label for="vnRpm" title="Measure your turntable at 33 RPM with a speed app (a phone on the platter) and enter the reading. Clips are slowed or sped up to match, because fingerprinting fails if a deck runs even 2% fast or slow. Leave at 33.33 if it's accurate.">Turntable speed at 33</label>
+  <input type="number" id="vnRpm" min="30" max="37" step="0.01" style="width:80px" title="The speed your turntable really runs at 33 RPM (33.33 = correct)">
   <label title="Cuts bass boom, turntable rumble and mains hum below 120 Hz, lifts voices a little, and evens out the level before sending. Helps with big speakers."><input type="checkbox" id="vnClean"> Clean up clips (cut bass rumble)</label>
 </div>
 <div data-tg-controls></div>

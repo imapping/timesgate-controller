@@ -20,6 +20,22 @@ const LOUD_DB = -45;
 // Cleans up a clip before it's sent (on by default): cuts everything below 120 Hz (boom from big
 // speakers, turntable rumble, mains hum), lifts 2-4 kHz a little, and raises the level so peaks reach
 // -1 dBFS (by at most 18 dB). AudD matches mostly on the mids and highs.
+// Corrects a turntable running at the wrong speed: a deck turning at 34.1 instead of 33⅓ plays
+// everything 2.3% fast and sharp, which is enough to stop fingerprint matching (though nobody hears
+// it). ratio = actual speed / correct speed; the clip is stretched by that much (slower and lower).
+function fixSpeed(wav, ratio) {
+  const at = 44, n = (wav.length - at) >> 1, m = Math.round(n * ratio);
+  const out = Buffer.alloc(at + m * 2);
+  wav.copy(out, 0, 0, at);
+  out.writeUInt32LE(36 + m * 2, 4); out.writeUInt32LE(m * 2, 40);
+  for (let i = 0; i < m; i++) {
+    const p = i / ratio, j = Math.floor(p), f = p - j;
+    const a = wav.readInt16LE(at + Math.min(j, n - 1) * 2), b = wav.readInt16LE(at + Math.min(j + 1, n - 1) * 2);
+    out.writeInt16LE(Math.round(a + (b - a) * f), at + i * 2);
+  }
+  return out;
+}
+
 function cleanClip(wav) {
   const rate = wav.readUInt32LE(24), at = 44, n = (wav.length - at) >> 1;   // mic.record()'s 44-byte WAV header
   const x = new Float64Array(n);
@@ -56,6 +72,8 @@ const monthKey = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 module.exports = tg => {
   const s = tg.settings;
   s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true; s.cleanClip ??= true; if (!CLIP_SECS.includes(s.clipSec)) s.clipSec = 12;
+  s.rpm ??= 33.33;   // the turntable's measured speed at 33⅓ (see fixSpeed)
+  const speedRatio = () => (Math.abs(s.rpm / (100 / 3) - 1) > 0.002 ? s.rpm / (100 / 3) : 1);
   s.usage ??= { month: monthKey(), count: 0 }; s.history ??= [];
   s.provider ??= 'audd'; s.acr ??= { host: '', key: '', secret: '' }; s.acrCap ??= 300;
   s.acrUsage ??= { month: monthKey(), count: 0 };
@@ -226,8 +244,9 @@ module.exports = tg => {
       if (why) { if (active) return turnOff('Stopped: ' + why); phase = 'off'; status = why; return; }
       status = 'Listening to identify…';
       const raw = await tg.mic.record(s.clipSec * 1000);
-      const wav = s.cleanClip ? cleanClip(raw) : raw;
-      lastClip = { wav, at: Date.now(), outcome: 'sending…', cleaned: s.cleanClip };
+      const sped = speedRatio() !== 1 ? fixSpeed(raw, speedRatio()) : raw;
+      const wav = s.cleanClip ? cleanClip(sped) : sped;
+      lastClip = { wav, at: Date.now(), outcome: 'sending…', cleaned: s.cleanClip, speedFixed: speedRatio() !== 1 ? s.rpm : null };
       if (cancelled()) return;
       // Ask each chosen service in turn until one matches.
       const notes = [];
@@ -297,7 +316,7 @@ module.exports = tg => {
     const same = track && track.title === t.title && track.artist === t.artist;
     // Check again around the track's end if no gap is heard (e.g. tracks that run into each other).
     const checkAt = duration => now + Math.max(same ? 2 * 60000 : 60000,
-      (duration && pos != null && duration < 20 * 60000 ? duration - pos - s.clipSec * 1000 : 4 * 60000) + 15000);
+      (duration && pos != null && duration < 20 * 60000 ? (duration - pos) / speedRatio() - s.clipSec * 1000 : 4 * 60000) + 15000);   // a fast deck ends songs sooner
     t.checkAt = checkAt(res.durationMs);
     track = t; phase = 'playing';
     status = `${t.title} — ${t.artist}`;
@@ -394,10 +413,10 @@ module.exports = tg => {
     provider: s.provider, auddSet: SERVICES.audd.ready(), acrSet: SERVICES.acr.ready(), acrHost: s.acr.host,
     hasToken: chosen().length > 0,   // the chosen service(s) can be used
     used: used(), cap: s.cap, acrUsed: acrUsed(), acrCap: s.acrCap,
-    autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec,
+    autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec, rpm: s.rpm,
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link },
     history: s.history.slice(0, 8),
-    lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome, cleaned: lastClip.cleaned },
+    lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome, cleaned: lastClip.cleaned, speedFixed: lastClip.speedFixed },
     logged: tg.listening.available ? tg.listening.stats().plays : null,   // plays in the listening log, from every source
   });
 
@@ -425,6 +444,7 @@ module.exports = tg => {
         if (typeof b.autoShow === 'boolean') s.autoShow = b.autoShow;
         if (typeof b.cleanClip === 'boolean') s.cleanClip = b.cleanClip;
         if (CLIP_SECS.includes(b.clipSec)) s.clipSec = b.clipSec;
+        if (Number.isFinite(b.rpm) && b.rpm >= 30 && b.rpm <= 37) s.rpm = Math.round(b.rpm * 100) / 100;
         tg.save();
         return state();
       },
