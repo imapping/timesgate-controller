@@ -15,11 +15,40 @@ const MIN_TRACK_MS = 45000;      // ignore "gaps" this soon after a match (quiet
 const RETRY_MS = 30000;
 const LOUD_DB = -45;
 
+// Cleans up a clip before it's sent (on by default): cuts everything below 120 Hz (boom from big
+// speakers, turntable rumble, mains hum), lifts 2-4 kHz a little, and raises the level so peaks reach
+// -1 dBFS (by at most 18 dB). AudD matches mostly on the mids and highs.
+function cleanClip(wav) {
+  const rate = wav.readUInt32LE(24), at = 44, n = (wav.length - at) >> 1;   // mic.record()'s 44-byte WAV header
+  const x = new Float64Array(n);
+  for (let i = 0; i < n; i++) x[i] = wav.readInt16LE(at + i * 2);
+  const biquad = (b0, b1, b2, a1, a2) => {
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < n; i++) { const v = x[i], y = b0 * v + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = v; y2 = y1; y1 = y; x[i] = y; }
+  };
+  const highPass = (f, q) => {
+    const w = 2 * Math.PI * f / rate, c = Math.cos(w), al = Math.sin(w) / (2 * q), a0 = 1 + al;
+    biquad((1 + c) / 2 / a0, -(1 + c) / a0, (1 + c) / 2 / a0, -2 * c / a0, (1 - al) / a0);
+  };
+  const lift = (f, q, gainDb) => {
+    const A = 10 ** (gainDb / 40), w = 2 * Math.PI * f / rate, c = Math.cos(w), al = Math.sin(w) / (2 * q), a0 = 1 + al / A;
+    biquad((1 + al * A) / a0, -2 * c / a0, (1 - al * A) / a0, -2 * c / a0, (1 - al / A) / a0);
+  };
+  highPass(120, 0.5412); highPass(120, 1.3065);   // two stages = 4th-order Butterworth
+  lift(3000, 0.8, 4);
+  let peak = 0;
+  for (const v of x) peak = Math.max(peak, Math.abs(v));
+  const gain = peak ? Math.min(8, 0.89 * 32767 / peak) : 1;
+  const out = Buffer.from(wav);
+  for (let i = 0; i < n; i++) out.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(x[i] * gain))), at + i * 2);
+  return out;
+}
+
 const monthKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 
 module.exports = tg => {
   const s = tg.settings;
-  s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true;
+  s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true; s.cleanClip ??= true;
   s.usage ??= { month: monthKey(), count: 0 }; s.history ??= [];
   // Start the listening log with the songs identified before it existed (once).
   if (!s.historyLogged && tg.listening.available) {
@@ -101,8 +130,9 @@ module.exports = tg => {
       }
       if (used() >= s.cap) return turnOff(`Stopped: this month's limit of ${s.cap} requests is used up.`);
       status = 'Listening to identify…';
-      const wav = await tg.mic.record(CLIP_MS);
-      lastClip = { wav, at: Date.now(), outcome: 'sending…' };
+      const raw = await tg.mic.record(CLIP_MS);
+      const wav = s.cleanClip ? cleanClip(raw) : raw;
+      lastClip = { wav, at: Date.now(), outcome: 'sending…', cleaned: s.cleanClip };
       if (cancelled()) return;
       s.usage.count++; tg.save();  // counted before sending, so the budget is never exceeded
       status = 'Identifying…';
@@ -225,10 +255,10 @@ module.exports = tg => {
   const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the AudD token from the computer running the controller, or one it trusts.'), { status: 403 }); };
   const state = () => ({
     active, phase, status, until: active ? until : null, hasToken: !!s.token,
-    used: used(), cap: s.cap, autoOffMin: s.autoOffMin, autoShow: s.autoShow,
+    used: used(), cap: s.cap, autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip,
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link },
     history: s.history.slice(0, 8),
-    lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome },
+    lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome, cleaned: lastClip.cleaned },
     logged: tg.listening.available ? tg.listening.stats().plays : null,   // plays in the listening log, from every source
   });
 
@@ -245,6 +275,7 @@ module.exports = tg => {
         if (Number.isFinite(b.cap) && b.cap >= 0) s.cap = Math.round(b.cap);
         if (Number.isFinite(b.autoOffMin) && b.autoOffMin >= 5 && b.autoOffMin <= 720) s.autoOffMin = Math.round(b.autoOffMin);
         if (typeof b.autoShow === 'boolean') s.autoShow = b.autoShow;
+        if (typeof b.cleanClip === 'boolean') s.cleanClip = b.cleanClip;
         tg.save();
         return state();
       },

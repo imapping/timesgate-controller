@@ -37,12 +37,13 @@
     // The last clip sent to AudD, to hear what it heard.
     $p('#vnClipRow').style.display = s.lastClip ? '' : 'none';
     if (s.lastClip) {
-      $p('#vnClipInfo').textContent = `(${new Date(s.lastClip.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}): ${s.lastClip.outcome}`;
+      $p('#vnClipInfo').textContent = `(${new Date(s.lastClip.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${s.lastClip.cleaned ? ', cleaned up' : ''}): ${s.lastClip.outcome}`;
       $p('#vnClipLink').href = '/api/vinyl/clip?t=' + s.lastClip.at;
     }
     if (document.activeElement !== $p('#vnCap')) $p('#vnCap').value = s.cap;
     $p('#vnAutoOff').value = s.autoOffMin;
     $p('#vnAutoShow').checked = s.autoShow;
+    $p('#vnClean').checked = s.cleanClip;
     const h = $p('#vnHistory');
     h.innerHTML = s.history.length ? '<table class="wx"></table>' : '';
     for (const t of s.history) {
@@ -143,4 +144,5 @@
   $p('#vnAutoOff').onchange = e => call('options', { autoOffMin: Number(e.target.value) });
   $p('#vnCap').onchange = e => call('options', { cap: Number(e.target.value) });
   $p('#vnAutoShow').onchange = e => call('options', { autoShow: e.target.checked });
+  $p('#vnClean').onchange = e => call('options', { cleanClip: e.target.checked });
 })();
