@@ -27,9 +27,17 @@ fi
 echo "   Node.js $(node -v)"
 
 echo "== 2/6 Getting the controller into $DIR"
-if [ -d "$DIR/.git" ]; then git -C "$DIR" pull --ff-only -q; else git clone -q --depth 1 "$REPO" "$DIR"; fi
+# npm can rewrite package-lock.json in its own format while installing. That isn't a real change, so
+# put it back before updating (otherwise git refuses to update) and again after installing.
+if [ -d "$DIR/.git" ]; then
+  git -C "$DIR" checkout -q -- package-lock.json 2>/dev/null || true
+  git -C "$DIR" pull --ff-only -q
+else
+  git clone -q --depth 1 "$REPO" "$DIR"
+fi
 cd "$DIR"
 npm install --omit=dev --no-audit --no-fund --loglevel=error
+git checkout -q -- package-lock.json 2>/dev/null || true
 # The listening log uses better-sqlite3, which normally downloads a ready-built copy. If that
 # wasn't available, build it here instead (needs a compiler, so it takes a few minutes).
 if ! node -e "require('better-sqlite3')" 2>/dev/null; then
