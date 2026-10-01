@@ -105,12 +105,13 @@ const server = http.createServer(async (req, res) => {
 
     // Button boxes / game controllers (buttons.js): status and which action each input runs.
     if (url.pathname === '/api/buttons') {
-      const extra = () => ({ actions: plugins.actions(), units: engine.units() });
+      const extra = () => ({ actions: [buttons.SWITCH_ACTION, ...plugins.actions()], units: engine.units() });
       if (req.method === 'GET') return sendJson(res, 200, { ...buttons.status(url.searchParams.has('full')), ...extra() });
       const b = JSON.parse((await readBody(req)).toString() || '{}');
       if (b.forget) buttons.forget(b.forget);
       else if ('device' in b) buttons.useDevice(b.device);
       else if (b.input) buttons.setInput(b.input, b);
+      else buttons.setOptions(b);   // { selected, switchBeep, switchFlash }
       return sendJson(res, 200, { ...buttons.status(true), ...extra() });
     }
 
@@ -211,7 +212,7 @@ const server = http.createServer(async (req, res) => {
 
 plugins.init(engine, { readBody, sendJson, isLoopback, port: PORT });
 engine.init(plugins);
-buttons.init((id, args) => plugins.runAction(id, args));
+buttons.init((id, args) => plugins.runAction(id, args), engine);
 
 server.listen(PORT, () => {
   const lan = Object.values(os.networkInterfaces()).flat()

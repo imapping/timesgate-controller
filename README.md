@@ -112,6 +112,11 @@ the firewall on **private networks** the first time it asks.
 If you have more than one Times Gate, press **Find on network** again and add each one. A picker
 appears at the top of the page.
 
+With a button box and several Times Gates, give one button the **Switch Times Gate** action. Each
+press moves the box to the next Times Gate, which beeps (once for the first, twice for the
+second…) and flashes its edge light. Buttons set to **on the selected one** (the default) then act
+on that Times Gate. You can still tie a button to a particular Times Gate, or to all of them.
+
 ### 5. Keep it running
 
 Everything (keeping screens updated, alerts, buttons, the timer) runs in the controller itself, so

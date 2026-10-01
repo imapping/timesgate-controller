@@ -3,6 +3,9 @@
 // Inputs aren't hard-coded: each report is compared with the idle one, so any controller works.
 // Press a button and it appears on the page, where you choose what it does (a short press, and
 // optionally a different action when held). Settings in data/buttons.json.
+// With several Times Gates, the box has a selected one: the "Switch Times Gate" action moves to the
+// next (it beeps 1, 2… times and flashes its edge light), and buttons not tied to a particular
+// Times Gate act on the selected one.
 
 const fs = require('fs');
 const path = require('path');
@@ -11,12 +14,17 @@ try { HID = require('node-hid'); } catch {}
 
 const CONF_FILE = path.join(__dirname, 'data', 'buttons.json');
 const HOLD_MS = 800;
-let conf = { device: null, inputs: {} };   // inputs: { id: { name, press, hold, unit } } — unit: a Times Gate id, 'all', or null (the first)
+// inputs: { id: { name, press, hold, unit } } — unit: a Times Gate id, 'all', or null (the selected one)
+// selected: the Times Gate the box controls (null: the first). switchBeep / switchFlash: feedback on switching.
+let conf = { device: null, inputs: {}, selected: null, switchBeep: true, switchFlash: true };
 try { conf = { ...conf, ...JSON.parse(fs.readFileSync(CONF_FILE, 'utf8')) }; } catch {}
 const save = () => { fs.mkdirSync(path.dirname(CONF_FILE), { recursive: true }); fs.writeFileSync(CONF_FILE, JSON.stringify(conf, null, 2)); };
 const log = (...a) => console.log(new Date().toLocaleTimeString(), '[buttons]', ...a);
 
 let runAction = null;            // (id, args) => Promise — from plugin-host
+let engine = null;               // for the list of Times Gates, and switching feedback
+const SWITCH = 'buttons.switch';
+const SWITCH_ACTION = { id: SWITCH, plugin: 'core', label: 'Switch Times Gate' };
 let dev = null, devInfo = null, baseline = null, down = new Map(), last = null, error = null;
 
 // ---------- finding the controller ----------
@@ -103,9 +111,26 @@ function released(id, st) {
   const b = conf.inputs[id];
   if (b && b.hold && !st.held) fire(id, b.press, 'press');
 }
+// ---------- the selected Times Gate ----------
+function selectedUnit() {
+  const list = engine ? engine.units() : [];
+  return list.find(u => u.id === conf.selected) || list[0] || null;
+}
+function switchUnit() {
+  const list = engine ? engine.units() : [];
+  if (!list.length) return;
+  const cur = selectedUnit(), next = list[(list.findIndex(u => u.id === cur.id) + 1) % list.length];
+  conf.selected = next.id; save();
+  log(`Now controlling ${next.name}.`);
+  const u = engine.unit(next.id), n = list.indexOf(next) + 1;
+  if (conf.switchBeep) u.beep({ on: 120, off: 120, total: n * 240 - 120 });   // 1 beep for the first, 2 for the second…
+  if (conf.switchFlash) u.edgeFlash(2500);
+}
+
 function fire(id, action, kind) {
   if (!action || !runAction) return;
-  const unit = conf.inputs[id].unit || undefined;
+  if (action === SWITCH) { log(`${conf.inputs[id].name} (${kind}) → switch Times Gate`); return switchUnit(); }
+  const unit = conf.inputs[id].unit || selectedUnit()?.id || undefined;
   log(`${conf.inputs[id].name} (${kind}) → ${action}${unit ? ' on ' + unit : ''}`);
   Promise.resolve().then(() => runAction(action, { unit })).catch(e => log(`${action} failed:`, e.message));
 }
@@ -115,7 +140,7 @@ function status(withDevices = false) {
   const list = HID && withDevices ? (() => { try { return HID.devices().filter(isController).map(d => ({ key: devKey(d), name: (d.product || '').trim().replace(/\s+/g, ' ') })); } catch { return []; } })() : [];
   const uniq = [...new Map(list.map(d => [d.key, d])).values()];
   return { available: !!HID, connected: !!dev, device: devInfo, devices: uniq, error, inputs: conf.inputs,
-    down: [...down.keys()], last };
+    down: [...down.keys()], last, selected: selectedUnit()?.id || null, switchBeep: conf.switchBeep, switchFlash: conf.switchFlash };
 }
 function setInput(id, o) {
   const b = conf.inputs[id];
@@ -126,6 +151,13 @@ function setInput(id, o) {
   if ('unit' in o) b.unit = o.unit || null;
   save();
 }
+// { selected, switchBeep, switchFlash } from the page.
+function setOptions(o) {
+  if ('selected' in o) conf.selected = o.selected || null;
+  if (typeof o.switchBeep === 'boolean') conf.switchBeep = o.switchBeep;
+  if (typeof o.switchFlash === 'boolean') conf.switchFlash = o.switchFlash;
+  save();
+}
 function forget(id) { delete conf.inputs[id]; save(); }
 function useDevice(key) {
   conf.device = key || null; save();
@@ -133,11 +165,11 @@ function useDevice(key) {
   connect();
 }
 
-function init(run) {
-  runAction = run;
+function init(run, eng) {
+  runAction = run; engine = eng;
   if (!HID) { error = 'node-hid is not installed (npm install node-hid)'; return; }
   connect();
   setInterval(connect, 5000);  // plugged in later, or unplugged and back
 }
 
-module.exports = { init, status, setInput, forget, useDevice };
+module.exports = { init, status, setInput, setOptions, forget, useDevice, SWITCH_ACTION };

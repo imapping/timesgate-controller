@@ -43,7 +43,18 @@ function btDraw(d) {
   }
   const ids = Object.keys(d.inputs).sort((a, b) => btOrder(a).localeCompare(btOrder(b)));
   const units = d.units || [];
-  const known = JSON.stringify([ids, d.inputs, d.actions.map(a => a.id), units.map(u => u.id + u.name)]);
+  // With several Times Gates: which one the box controls, and the feedback when switching.
+  $('btUnitRow').style.display = units.length > 1 ? '' : 'none';
+  if (units.length > 1 && document.activeElement !== $('btSelected')) {
+    const sel = $('btSelected'), want = units.map(u => u.id + '|' + u.name).join(',');
+    if (sel.dataset.units !== want) {
+      sel.dataset.units = want; sel.innerHTML = '';
+      units.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.name; sel.append(o); });
+    }
+    sel.value = d.selected || units[0].id;
+  }
+  if ('switchBeep' in d) { $('btSwBeep').checked = d.switchBeep; $('btSwFlash').checked = d.switchFlash; }
+  const known = JSON.stringify([ids, d.inputs, (d.actions || []).map(a => a.id), units.map(u => u.id + u.name)]);
   if (known !== btKnown && !document.activeElement?.closest?.('#btList')) {
     btKnown = known;
     const box = $('btList');
@@ -69,11 +80,12 @@ function btDraw(d) {
       if (units.length > 1) {
         const on = document.createElement('select');
         on.title = 'Which Times Gate this button controls';
-        on.style.flex = '0 1 150px';
+        on.style.flex = '0 1 190px';
         on.innerHTML = '';
-        units.forEach((u, i) => { const o = document.createElement('option'); o.value = i ? u.id : ''; o.textContent = 'on ' + u.name; on.append(o); });
+        const follow = document.createElement('option'); follow.value = ''; follow.textContent = 'on the selected one'; on.append(follow);
+        units.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = 'on ' + u.name; on.append(o); });
         const all = document.createElement('option'); all.value = 'all'; all.textContent = 'on all of them'; on.append(all);
-        on.value = b.unit && b.unit !== units[0].id ? b.unit : '';
+        on.value = b.unit || '';
         on.onchange = () => btCall({ input: id, unit: on.value }).catch(e => log('Buttons: ' + e.message, 'e'));
         row.append(on);
       }
@@ -86,6 +98,9 @@ function btDraw(d) {
   for (const row of $('btList').querySelectorAll('.btn-row')) row.classList.toggle('down', d.down.includes(row.dataset.id) || row.dataset.id === recent);
 }
 
+$('btSelected').onchange = () => btCall({ selected: $('btSelected').value }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
+$('btSwBeep').onchange = $('btSwFlash').onchange = () =>
+  btCall({ switchBeep: $('btSwBeep').checked, switchFlash: $('btSwFlash').checked }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
 $('btDevice').onchange = () => btCall({ device: $('btDevice').value }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
 btCall().then(btDraw).catch(() => {});
 setInterval(async () => { try { btDraw(await (await fetch('/api/buttons')).json()); } catch {} }, 500);

@@ -185,6 +185,15 @@ class Unit {
     this.send({ Command: 'Channel/SetRGBInfo', SelectLightIndex: 1, Brightness: 100, OnOff: 1, Color: color, ColorCycle: 1,
       LightList: [{ SelectEffect: 0 }, { SelectEffect: 10, Color: color, ColorCycle: 1 }, { SelectEffect: 0 }] }).catch(() => {});
   }
+  // A solid colour on the edge light for a moment (e.g. "this one" when the button box switches to
+  // this unit), then back to what the page last set.
+  edgeFlash(ms = 2500, color = '#00d0ff') {
+    const rt = this.rt;
+    clearTimeout(rt.edgeTimer);
+    rt.edgeTimer = setTimeout(() => { rt.edgeTimer = null; this.send(this.edge || EDGE_OFF).catch(() => {}); }, ms);
+    this.send({ Command: 'Channel/SetRGBInfo', SelectLightIndex: 1, Brightness: 100, OnOff: 1, Color: color, ColorCycle: 0,
+      LightList: [{ SelectEffect: 0 }, { SelectEffect: 4, Color: color, ColorCycle: 0 }, { SelectEffect: 0 }] }).catch(() => {});
+  }
   cancelEdgeAlert() { clearTimeout(this.rt.edgeTimer); this.rt.edgeTimer = null; }
 
   // ----- countdown timer label -----
