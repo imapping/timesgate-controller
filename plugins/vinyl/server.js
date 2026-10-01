@@ -252,7 +252,7 @@ module.exports = tg => {
         return;
       }
       misses = 0;
-      matched(found);
+      matched(found).catch(e => tg.log('Saving the match failed:', e.message));   // (finishes in the background)
       if (!active) phase = 'off';
       if (manual && s.autoShow && !tg.isLive()) tg.setLive(true, showOn);
     } catch (e) {
@@ -272,38 +272,58 @@ module.exports = tg => {
     identify(true);
   }
 
-  // res: a match from either service (see SERVICES).
-  function matched(res) {
-    const now = Date.now(), duration = res.durationMs, pos = res.posMs;
-    const t = { title: res.title, artist: res.artist, album: res.album, year: res.year, art: res.art, link: res.link,
+  // Names that arrive all in lowercase (some ACRCloud entries) get capitals: "bicycle race" → "Bicycle Race".
+  // Anything with a capital already is left alone.
+  const tidy = v => (v && v === v.toLowerCase() && /\p{Ll}/u.test(v)
+    ? v.replace(/(^|[\s(\[\-"/&.])(\p{Ll})/gu, (m, before, c) => before + c.toUpperCase()) : v || '');
+
+  // res: a match from either service (see SERVICES). Shown straight away; the Spotify link and cover
+  // are filled in if missing, before it goes into the history and listening log.
+  async function matched(res) {
+    const now = Date.now(), pos = res.posMs;
+    const t = { title: tidy(res.title), artist: tidy(res.artist), album: tidy(res.album), year: res.year, art: res.art, link: res.link,
       spotify: res.spotify, service: res.service, identifiedAt: now };
-    if (!t.art && t.spotify) spotifyArt(t);
     const same = track && track.title === t.title && track.artist === t.artist;
     // Check again around the track's end if no gap is heard (e.g. tracks that run into each other).
-    const left = duration && pos != null && duration < 20 * 60000 ? duration - pos - s.clipSec * 1000 : 4 * 60000;
-    t.checkAt = now + Math.max(same ? 2 * 60000 : 60000, left + 15000);
+    const checkAt = duration => now + Math.max(same ? 2 * 60000 : 60000,
+      (duration && pos != null && duration < 20 * 60000 ? duration - pos - s.clipSec * 1000 : 4 * 60000) + 15000);
+    t.checkAt = checkAt(res.durationMs);
     track = t; phase = 'playing';
     status = `${t.title} — ${t.artist}`;
-    if (!same) {
-      tg.log(`Identified by ${t.service}: ${t.title} — ${t.artist} (AudD ${used()}/${s.cap}, ACRCloud ${acrUsed()}/${s.acrCap} this month)`);
-      s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, at: now }, ...s.history].slice(0, 20);
-      // The all-time listening log (data/listening.db).
-      try {
-        tg.listening.add({ at: now, title: t.title, artist: t.artist, album: t.album, year: t.year, duration_ms: duration,
-          isrc: res.isrc, spotify_url: t.spotify, label: res.label });
-      } catch (e) { tg.log('Listening log:', e.message); }
-      tg.save();
-      tg.update();
-    }
+    if (same) return;
+    tg.log(`Identified by ${t.service}: ${t.title} — ${t.artist} (AudD ${used()}/${s.cap}, ACRCloud ${acrUsed()}/${s.acrCap} this month)`);
+    tg.update();
+    const extra = !t.art || !t.spotify ? await fillIn(t) : {};
+    if (!res.durationMs && extra.duration) t.checkAt = checkAt(extra.duration);
+    s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, at: now }, ...s.history].slice(0, 20);
+    // The all-time listening log (data/listening.db).
+    try {
+      tg.listening.add({ at: now, title: t.title, artist: t.artist, album: t.album, year: t.year, duration_ms: res.durationMs || extra.duration,
+        isrc: res.isrc || extra.isrc, spotify_url: t.spotify, label: res.label });
+    } catch (e) { tg.log('Listening log:', e.message); }
+    tg.save();
+    if (track === t && t.art) tg.update();
   }
 
-  // Album art for a match without any (ACRCloud): Spotify's public oEmbed gives the cover.
-  async function spotifyArt(t) {
-    try {
-      const r = await fetch('https://open.spotify.com/oembed?url=' + encodeURIComponent(t.spotify), { signal: AbortSignal.timeout(10000) });
-      const u = r.ok && (await r.json()).thumbnail_url;
-      if (u && /^https:\/\/[a-z0-9.-]+\.(scdn\.co|spotifycdn\.com)\//.test(u) && track === t) { t.art = u; tg.update(); }
-    } catch {}
+  // Fills in a match's missing Spotify link and cover, in this order: Spotify's oEmbed (the cover, from
+  // a link), a search through the Spotify plugin (link, cover, ISRC and length, if Spotify is
+  // connected), then Apple's iTunes Search (the cover only). Returns { isrc, duration } if found.
+  async function fillIn(t) {
+    const extra = {};
+    const get = url => fetch(url, { signal: AbortSignal.timeout(6000) }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    if (t.spotify && !t.art) {
+      const u = (await get('https://open.spotify.com/oembed?url=' + encodeURIComponent(t.spotify)))?.thumbnail_url;
+      if (u && /^https:\/\/[a-z0-9.-]+\.(scdn\.co|spotifycdn\.com)\//.test(u)) t.art = u;
+    }
+    if (!t.spotify || !t.art) {
+      const f = (await get(`http://127.0.0.1:${tg.port}/api/spotify/search?` + new URLSearchParams({ title: t.title, artist: t.artist })))?.found;
+      if (f) { t.spotify ||= f.url; t.art ||= f.art; extra.isrc = f.isrc; extra.duration = f.duration; }
+    }
+    if (!t.art) {
+      const it = (await get('https://itunes.apple.com/search?' + new URLSearchParams({ media: 'music', entity: 'song', limit: '1', term: `${t.artist} ${t.title}` })))?.results?.[0];
+      if (it?.artworkUrl100) t.art = it.artworkUrl100.replace(/\/\d+x\d+bb\./, '/300x300bb.');
+    }
+    return extra;
   }
 
   async function artFor(url) {

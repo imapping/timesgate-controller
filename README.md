@@ -283,8 +283,8 @@ Some plugins use online services. Each user sets up their own account or key; no
   [Spotify developer dashboard](https://developer.spotify.com/dashboard). Use is subject to
   Spotify's developer terms.
 - **Vinyl:** uses [AudD](https://audd.io/) and/or [ACRCloud](https://www.acrcloud.com/) music
-  recognition, paid services with your own keys. Album art for ACRCloud matches comes from
-  Spotify's public oEmbed service. The plugin only listens on request and has monthly caps.
+  recognition, paid services with your own keys. Missing album art and links are looked up on
+  Spotify (oEmbed, or a search through your connected Spotify) and in Apple's iTunes Search. The plugin only listens on request and has monthly caps.
 - **GitHub:** uses the GitHub API. It works without a token; an optional read-only token of your
   own adds visitors, clones and your contribution graph.
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.

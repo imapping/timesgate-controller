@@ -26,17 +26,22 @@ module.exports = tg => {
     tg.save();
   }
 
-  async function nowPlaying() {
-    if (!sp().refreshToken) return { connected: false };
-    if (Date.now() - cache.at < 3000) return cache.data;  // several tabs polling share one lookup
+  // A Spotify Web API GET with the saved login, refreshing it when needed.
+  async function apiGet(url) {
     const get = async () => {
       if (!sp().accessToken || Date.now() > sp().expiresAt)
         await token({ grant_type: 'refresh_token', refresh_token: sp().refreshToken });
-      return fetch('https://api.spotify.com/v1/me/player/currently-playing?additional_types=track,episode',
-        { headers: { Authorization: 'Bearer ' + sp().accessToken }, signal: AbortSignal.timeout(10000) });
+      return fetch(url, { headers: { Authorization: 'Bearer ' + sp().accessToken }, signal: AbortSignal.timeout(10000) });
     };
     let r = await get();
     if (r.status === 401) { sp().accessToken = null; r = await get(); }
+    return r;
+  }
+
+  async function nowPlaying() {
+    if (!sp().refreshToken) return { connected: false };
+    if (Date.now() - cache.at < 3000) return cache.data;  // several tabs polling share one lookup
+    const r = await apiGet('https://api.spotify.com/v1/me/player/currently-playing?additional_types=track,episode');
     let data;
     if (r.status === 204) data = { connected: true, item: null };
     else if (r.status === 429) return cache.data || { connected: true, item: null };  // rate limited: keep what we had
@@ -109,6 +114,22 @@ module.exports = tg => {
     routes: {
       'GET /status': () => ({ clientId: sp().clientId || '', connected: !!sp().refreshToken, redirect: redirect() }),
       'GET /now': () => nowPlaying(),
+      // Find a song on Spotify (other plugins use this, e.g. Vinyl for links and covers):
+      // ?title=&artist= → { found: { url, art, isrc, duration, title, artist } or null }
+      'GET /search': async ctx => {
+        if (!ctx.local) throw Object.assign(new Error('Only from the computer running the controller, or one it trusts.'), { status: 403 });
+        const title = (ctx.query.get('title') || '').replace(/"/g, ''), artist = (ctx.query.get('artist') || '').replace(/"/g, '');
+        if (!sp().refreshToken || !title) return { found: null };
+        const q = `track:${title}` + (artist ? ` artist:${artist.split(/,|&| feat\.? /i)[0].trim()}` : '');
+        const r = await apiGet('https://api.spotify.com/v1/search?type=track&limit=1&q=' + encodeURIComponent(q));
+        if (!r.ok) return { found: null };
+        const it = (await r.json()).tracks?.items?.[0];
+        if (!it) return { found: null };
+        const imgs = it.album?.images || [];
+        return { found: { url: it.external_urls?.spotify || null, isrc: it.external_ids?.isrc || null, duration: it.duration_ms,
+          art: (imgs.filter(i => (i.width || 640) >= 128).pop() || imgs[0])?.url || null,
+          title: it.name, artist: (it.artists || []).map(a => a.name).join(', ') } };
+      },
       // Album art, relayed so the page can draw it on a canvas (only Spotify's image CDN).
       'GET /art': async ({ query, res }) => {
         const u = query.get('u') || '';

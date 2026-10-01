@@ -7,6 +7,10 @@ and shows it:
 - **Screen 4:** the artist.
 - **Screen 5:** a spinning record, with the album and year.
 
+Matches missing a Spotify link or cover are looked up on Spotify (through the Spotify plugin, if it's
+connected), then in Apple's iTunes Search for the cover. Titles that arrive all in lowercase get
+capital letters.
+
 ## Setup
 
 Choose the **Service** in the card, then add its keys from the computer running the controller (or
@@ -15,7 +19,7 @@ one it trusts). The keys stay on the controller and are never sent to the page.
 - **ACRCloud:** often better with records heard through speakers in a room. In the ACRCloud console,
   create an **Audio & Video Recognition** project (audio source **Recorded Audio**, bucket
   **ACRCloud Music**). Copy its **host** (like `identify-eu-west-1.acrcloud.com`), **access key** and
-  **access secret** into the card. ACRCloud has a free trial; matches get their cover art from Spotify.
+  **access secret** into the card. ACRCloud has a free trial. In the project, switch on Spotify under its third-party ID settings so matches come with Spotify links.
 - **AudD, then ACRCloud if no match:** asks AudD first, and only asks ACRCloud when AudD finds
   nothing. Each service has its own monthly limit in the card.
 
