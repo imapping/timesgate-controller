@@ -286,6 +286,9 @@ Some plugins use online services. Each user sets up their own account or key; no
   own adds visitors, clones and your contribution graph.
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.
 
+Every song Vinyl identifies, and every song you play on Spotify (once it has played for 30 seconds),
+is saved to a **listening log**, an SQLite database at `data/listening.db`, ready for reports.
+
 Settings, logins and tokens are saved in `data/`, which is never served by the web server and is
 excluded from git.
 

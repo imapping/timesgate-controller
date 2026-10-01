@@ -13,6 +13,9 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
   - State is in `engine.json`.
 - `plugin-host.js`: loads `plugins/*`, the `tg` toolkit, install/remove, and actions.
 - `mic.js`: the shared microphone. It uses ffmpeg on Windows and arecord on a Pi, and runs only while something uses it.
+- `listening.js`: the listening log, every song heard (Vinyl) or played (Spotify), in SQLite at
+  `data/listening.db` via better-sqlite3 (pinned to 12.11.1, the last to support the Pi's Node 20).
+  Plugins use `tg.listening.add/query`.
 - `buttons.js`: reads the USB button box through node-hid, and runs the action assigned to each button.
   With several Times Gates, the box has a selected one (`buttons.switch` moves to the next, with a
   beep and edge flash); buttons without a fixed unit act on it.

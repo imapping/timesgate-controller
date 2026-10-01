@@ -18,6 +18,10 @@
   "type": "commonjs",
   "dependencies": {
     "@napi-rs/canvas": "^1.0.9",
+    "better-sqlite3": "12.11.1",
     "node-hid": "^3.4.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
   }
 }

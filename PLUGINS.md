@@ -56,7 +56,7 @@ id replaces it. Installed plugins can be turned off or removed on the page too.
 
 | Field | |
 |---|---|
-| `id` | Required. Lowercase letters, digits and dashes (2–32). Must match the folder name. Used in URLs: `/api/<id>/…`, `/plugins/<id>/…`. Can't be `device`, `engine`, `picid`, `cloud`, `upload`, `uploads`, `plugins` or `actions`. |
+| `id` | Required. Lowercase letters, digits and dashes (2–32). Must match the folder name. Used in URLs: `/api/<id>/…`, `/plugins/<id>/…`. Can't be `device`, `engine`, `picid`, `cloud`, `upload`, `uploads`, `plugins`, `actions`, `mic`, `buttons`, `core` or `listening`. |
 | `name`, `version`, `description`, `author` | Shown in the Plugins list. |
 | `server` | Server file, default `server.js`. |
 | `panel` | HTML file in `public/` for the card. |
@@ -195,6 +195,9 @@ back. Call `tg.device.stopLightShow()` before you start.
 | `tg.mic.listen(fn, { sensitivity, samples })` | Use the microphone. `fn({ t, level, db, beat, bpm })` runs about 43 times a second. `level` is 0–1, `db` is dBFS, `beat` is true on a detected beat, and `bpm` is the tempo or null. Sensitivity is 0–1 and sets how easily beats are detected. With `{ samples: true }`, `fn` also gets `samples`, the raw sound as an Int16Array (512 samples, about 23 ms; valid only during the call). The Vinyl plugin uses it to stream a waveform to its card. Returns a function that stops listening. The mic only runs while something listens, and it stops automatically when the plugin is turned off. |
 | `tg.mic.record(ms)` | Resolves to a WAV Buffer of the next `ms` of sound (mono, 16-bit, 22.05 kHz, up to 30 s). Nothing is saved to disk. |
 | `tg.mic.status()` | `{ running, error, device, level, db, bpm, … }` |
+| `tg.listening.add(play)` | Add a song to the **listening log** (`data/listening.db`, SQLite): `{ title, artist, at?, album?, year?, duration_ms?, isrc?, spotify_url?, label? }`. `at` is ms since 1970 (default now); the source is your plugin id. The same song from the same source within most of its length is skipped (e.g. after a restart). Vinyl and Spotify log here. |
+| `tg.listening.query(sql, params?)` | Read-only SQL over the `plays` table (`id, at, source, title, artist, album, year, duration_ms, isrc, spotify_url, label`), e.g. `SELECT artist, COUNT(*) n FROM plays GROUP BY artist ORDER BY n DESC LIMIT 10`. For report plugins. |
+| `tg.listening.available`, `tg.listening.stats()` | Whether the log works (it needs better-sqlite3), and `{ plays, first, last }` |
 
 Node's built-in modules (`fetch`, `crypto`, `fs`…) are all available. npm packages aren't
 installed for plugins: pure-JavaScript packages can be bundled inside the plugin folder, but prefer

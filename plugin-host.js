@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const zlib = require('zlib');
 const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const mic = require('./mic');
+const listening = require('./listening');
 globalThis.makeCanvas = (w, h) => createCanvas(w, h);
 
 // Screens use `system-ui, "Segoe UI", sans-serif`. Linux (a Raspberry Pi) has no Segoe UI, so use Noto
@@ -27,7 +28,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const CONF_FILE = path.join(DATA_DIR, 'plugins.json');
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
 // /api/<id>/ routes that belong to the server itself.
-const RESERVED = new Set(['device', 'engine', 'picid', 'cloud', 'upload', 'uploads', 'plugins', 'actions', 'mic', 'buttons', 'core']);
+const RESERVED = new Set(['device', 'engine', 'picid', 'cloud', 'upload', 'uploads', 'plugins', 'actions', 'mic', 'buttons', 'core', 'listening']);
 const MAX_ZIP = 20 * 1024 * 1024, MAX_UNZIPPED = 50 * 1024 * 1024;
 
 fs.mkdirSync(PLUGIN_DIR, { recursive: true });
@@ -97,6 +98,13 @@ function makeToolkit(rec) {
       },
       record: ms => mic.record(ms),
       status: () => mic.status(),
+    },
+    // The listening log (data/listening.db): every song heard or played, for reports.
+    listening: {
+      get available() { return listening.available(); },
+      add: play => listening.add(play, id),                        // { title, artist, at?, album?, year?, duration_ms?, isrc?, spotify_url?, label? }
+      query: (sql, params) => listening.query(sql, params),        // read-only SQL over the plays table
+      stats: () => listening.stats(),                              // { available, plays, first, last }
     },
   };
   return tg;

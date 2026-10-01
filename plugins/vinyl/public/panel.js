@@ -32,7 +32,8 @@
     $p('#vnNow').disabled = !s.hasToken || s.phase === 'identifying';
     const off = s.active && s.until ? ` (until ${new Date(s.until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})` : '';
     $p('#vnStatus').textContent = s.status + off;
-    $p('#vnUsage').textContent = `${s.used} of ${s.cap} requests used this month.`;
+    $p('#vnUsage').textContent = `${s.used} of ${s.cap} requests used this month.`
+      + (s.logged != null ? ` Listening log: ${s.logged.toLocaleString()} plays saved.` : '');
     if (document.activeElement !== $p('#vnCap')) $p('#vnCap').value = s.cap;
     $p('#vnAutoOff').value = s.autoOffMin;
     $p('#vnAutoShow').checked = s.autoShow;

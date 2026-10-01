@@ -21,6 +21,13 @@ module.exports = tg => {
   const s = tg.settings;
   s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true;
   s.usage ??= { month: monthKey(), count: 0 }; s.history ??= [];
+  // Start the listening log with the songs identified before it existed (once).
+  if (!s.historyLogged && tg.listening.available) {
+    for (const h of [...s.history].reverse()) {
+      try { tg.listening.add({ at: h.at, title: h.title, artist: h.artist, album: h.album, year: h.year, spotify_url: h.spotify, force: true }); } catch {}
+    }
+    s.historyLogged = true; tg.save();
+  }
 
   let active = false, until = 0, phase = 'off', status = 'Off', stopMic = null, offTimer = null;
   let track = null, misses = 0, retryAt = 0;
@@ -149,6 +156,11 @@ module.exports = tg => {
     if (!same) {
       tg.log(`Identified: ${t.title} — ${t.artist} (${used()}/${s.cap} this month)`);
       s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, at: now }, ...s.history].slice(0, 20);
+      // The all-time listening log (data/listening.db).
+      try {
+        tg.listening.add({ at: now, title: t.title, artist: t.artist, album: t.album, year: t.year, duration_ms: duration,
+          isrc: res.spotify?.external_ids?.isrc || res.apple_music?.isrc || null, spotify_url: t.spotify, label: res.label || null });
+      } catch (e) { tg.log('Listening log:', e.message); }
       tg.save();
       tg.update();
     }
@@ -210,6 +222,7 @@ module.exports = tg => {
     used: used(), cap: s.cap, autoOffMin: s.autoOffMin, autoShow: s.autoShow,
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link },
     history: s.history.slice(0, 8),
+    logged: tg.listening.available ? tg.listening.stats().plays : null,   // plays in the listening log, from every source
   });
 
   return {

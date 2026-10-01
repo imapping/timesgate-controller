@@ -30,6 +30,13 @@ echo "== 2/6 Getting the controller into $DIR"
 if [ -d "$DIR/.git" ]; then git -C "$DIR" pull --ff-only -q; else git clone -q --depth 1 "$REPO" "$DIR"; fi
 cd "$DIR"
 npm install --omit=dev --no-audit --no-fund --loglevel=error
+# The listening log uses better-sqlite3, which normally downloads a ready-built copy. If that
+# wasn't available, build it here instead (needs a compiler, so it takes a few minutes).
+if ! node -e "require('better-sqlite3')" 2>/dev/null; then
+  echo "   Building the SQLite library for the listening log (a few minutes)…"
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential python3 >/dev/null
+  npm rebuild better-sqlite3 --loglevel=error || echo "   Couldn't build it; everything else works, but the listening log is off."
+fi
 
 echo "== 3/6 Letting it read the USB button box and the microphone"
 sudo tee /etc/udev/rules.d/99-timesgate-buttons.rules >/dev/null <<'RULES'

@@ -51,6 +51,8 @@ module.exports = tg => {
         artist: it.artists ? it.artists.map(a => a.name).join(', ') : (it.show?.name || ''),
         album: it.album?.name || it.show?.name || '',
         art: art?.url || null, duration: it.duration_ms, progress: d.progress_ms,
+        url: it.external_urls?.spotify || null, isrc: it.external_ids?.isrc || null,
+        year: (it.album?.release_date || '').slice(0, 4) || null,
       } };
     }
     cache = { at: Date.now(), data };
@@ -65,6 +67,23 @@ module.exports = tg => {
     }
     return artCache.get(url);
   }
+
+  // The listening log (data/listening.db): a song counts as played once it has played for 30 s
+  // (Spotify's own rule). Checked every 20 s while logged in, whether or not Spotify is on the screens.
+  let counted = null;   // { id, startedAt } of the play already logged
+  tg.every(20000, async () => {
+    if (!sp().refreshToken || !tg.listening.available) return;
+    const d = await nowPlaying().catch(() => null), it = d && d.item;
+    if (!it || !d.playing || it.type !== 'track' || !(it.progress >= 30000)) return;
+    const startedAt = Date.now() - it.progress;
+    // Same play if it started within a song's length of the one logged (allows for seeking).
+    if (counted && counted.id === it.id && Math.abs(counted.startedAt - startedAt) < (it.duration || 180000)) return;
+    counted = { id: it.id, startedAt };
+    try {
+      tg.listening.add({ at: startedAt, title: it.name, artist: it.artist, album: it.album, year: it.year,
+        duration_ms: it.duration, isrc: it.isrc, spotify_url: it.url });
+    } catch (e) { tg.log('Listening log:', e.message); }
+  });
 
   const localOnly = ctx => {
     if (!ctx.local) throw Object.assign(new Error(`Open the page at http://127.0.0.1:${tg.port} on the computer running the controller to set up Spotify (for a Raspberry Pi, through an SSH tunnel: see the README).`), { status: 403 });
