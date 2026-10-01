@@ -36,6 +36,13 @@ function open() {
       CREATE INDEX IF NOT EXISTS plays_at ON plays (at);
       CREATE INDEX IF NOT EXISTS plays_artist ON plays (artist);
       CREATE UNIQUE INDEX IF NOT EXISTS plays_once ON plays (source, at, title, artist);
+      -- Your favourite songs: by title and artist (whatever the capitals), so every play of the song counts.
+      CREATE TABLE IF NOT EXISTS favourites (
+        title  TEXT NOT NULL COLLATE NOCASE,
+        artist TEXT NOT NULL COLLATE NOCASE,
+        at     INTEGER NOT NULL,    -- when it was made a favourite
+        PRIMARY KEY (title, artist)
+      );
     `);
     // Logs made before notes existed get the new columns.
     const have = db.prepare('PRAGMA table_info(plays)').all().map(c => c.name);
@@ -91,10 +98,20 @@ function annotate(id, { tags, note } = {}) {
   return db.prepare('SELECT id, at, source, title, artist, album, position, tags, note FROM plays WHERE id = ?').get(int(id));
 }
 
+// Make a song a favourite, or not: favourite('Walk of Life', 'Dire Straits', true). Returns { title, artist, favourite }.
+function favourite(title, artist, on) {
+  if (!open()) throw new Error('The listening log is not available: ' + error);
+  title = str(title); artist = str(artist);
+  if (!title || !artist) return null;
+  if (on) db.prepare('INSERT OR IGNORE INTO favourites (title, artist, at) VALUES (?, ?, ?)').run(title, artist, Date.now());
+  else db.prepare('DELETE FROM favourites WHERE title = ? AND artist = ?').run(title, artist);
+  return { title, artist, favourite: !!on };
+}
+
 function stats() {
   if (!open()) return { available: false, error };
   const s = reader.prepare('SELECT COUNT(*) plays, MIN(at) first, MAX(at) last FROM plays').get();
   return { available: true, ...s };
 }
 
-module.exports = { add, query, annotate, stats, available: () => !!open(), FILE };
+module.exports = { add, query, annotate, favourite, stats, available: () => !!open(), FILE };

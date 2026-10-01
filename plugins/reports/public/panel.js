@@ -91,7 +91,7 @@
     $p('#rpInfo').textContent = t.plays && t.first ? `since ${new Date(Math.max(t.first, d.since || 0)).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}` : '';
 
     list($p('#rpArtists'), d.topArtists.map(r => ({ name: r.artist, n: r.n })), 'artist');
-    list($p('#rpSongs'), d.topSongs.map(r => ({ name: r.title, sub: r.artist, n: r.n,
+    list($p('#rpSongs'), d.topSongs.map(r => ({ name: (r.fav ? '★ ' : '') + r.title, sub: r.artist, n: r.n,
       link: (r.spotify || '').startsWith('https://open.spotify.com/') ? r.spotify : 'https://open.spotify.com/search/' + encodeURIComponent(`${r.title} ${r.artist}`) })), 'song');
     list($p('#rpAlbums'), d.topAlbums.map(r => ({ name: r.album, sub: r.artist, n: r.n })), 'album');
 
@@ -120,6 +120,26 @@
       box.append(table);
     }
 
+    // Your favourite songs, most played in this period first.
+    const fb = $p('#rpFavs');
+    fb.innerHTML = '';
+    $p('#rpFavCount').textContent = d.favourites.length ? `· ${plural(d.favourites.length, 'song', 'songs')}` : '';
+    if (!d.favourites.length) fb.append(el('div', 'rp-empty', 'No favourites yet. Click the star next to a song to add it.'));
+    else {
+      const table = el('table', 'wx rp-recent');
+      for (const r of d.favourites) {
+        const tr = el('tr'), td = el('td'), a = el('a', null, r.title), last = el('td');
+        a.href = (r.spotify || '').startsWith('https://open.spotify.com/') ? r.spotify : 'https://open.spotify.com/search/' + encodeURIComponent(`${r.title} ${r.artist}`);
+        a.target = '_blank'; a.rel = 'noopener'; a.style.color = 'inherit'; a.title = 'Open in Spotify';
+        td.append(a);
+        last.style.cssText = 'width:1%;padding-right:0';
+        last.append(TG.favButton(r, () => load()));
+        tr.append(td, el('td', null, r.artist), el('td', 'hint', r.n ? plural(r.n, 'play', 'plays') : 'not played in this period'), last);
+        table.append(tr);
+      }
+      fb.append(table);
+    }
+
     // Every play in this period with a mark or a comment.
     const nb = $p('#rpNotes');
     nb.innerHTML = '';
@@ -141,7 +161,8 @@
   // The Note button for a play (saving reloads the report).
   function noteCell(r, has) {
     const td = el('td'), b = el('button', 'note-btn', has ? 'Edit note' : 'Note');
-    td.style.cssText = 'width:1%;padding-right:0';
+    td.style.cssText = 'width:1%;padding-right:0;white-space:nowrap';
+    if ('fav' in r) td.append(TG.favButton(r, () => load()));
     b.title = 'Mark this track: skips, crackles, poor quality… and add a comment';
     b.onclick = async () => { if (await TG.editNote(r)) load(); };
     td.append(b);

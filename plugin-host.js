@@ -106,6 +106,7 @@ function makeToolkit(rec) {
       add: play => listening.add(play, id),                        // { title, artist, at?, album?, year?, duration_ms?, isrc?, spotify_url?, label?, position? }
       query: (sql, params) => listening.query(sql, params),        // read-only SQL over the plays table
       annotate: (playId, marks) => listening.annotate(playId, marks),   // { tags: [...], note } on one play
+      favourite: (title, artist, on) => listening.favourite(title, artist, on),   // a favourite song, or not
       stats: () => listening.stats(),                              // { available, plays, first, last }
     },
   };

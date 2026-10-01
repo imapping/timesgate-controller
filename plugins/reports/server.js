@@ -62,13 +62,19 @@ module.exports = tg => {
       // Every source with plays in this period (whatever the source filter), for the card's picker.
       sources: tg.listening.query('SELECT source, COUNT(*) n FROM plays WHERE at >= ? GROUP BY source ORDER BY n DESC', [since]),
       topArtists: q(`SELECT artist, COUNT(*) n FROM plays WHERE {W} GROUP BY artist COLLATE NOCASE ORDER BY n DESC, MAX(at) DESC LIMIT 10`),
-      topSongs: q(`SELECT title, artist, COUNT(*) n, MAX(spotify_url) spotify FROM plays WHERE {W}
+      topSongs: q(`SELECT title, artist, COUNT(*) n, MAX(spotify_url) spotify,
+        EXISTS (SELECT 1 FROM favourites f WHERE f.title = plays.title AND f.artist = plays.artist) fav FROM plays WHERE {W}
         GROUP BY title COLLATE NOCASE, artist COLLATE NOCASE ORDER BY n DESC, MAX(at) DESC LIMIT 10`),
       topAlbums: q(`SELECT album, artist, COUNT(*) n FROM plays WHERE {W} AND album IS NOT NULL AND album != ''
         GROUP BY album COLLATE NOCASE, artist COLLATE NOCASE ORDER BY n DESC, MAX(at) DESC LIMIT 10`),
       series: { unit: byMonth ? 'month' : 'day', points },
       hours,
-      recent: q(`SELECT id, at, source, title, artist, album, spotify_url spotify, tags, note FROM plays WHERE {W} ORDER BY at DESC LIMIT 12`),
+      recent: q(`SELECT id, at, source, title, artist, album, spotify_url spotify, tags, note,
+        EXISTS (SELECT 1 FROM favourites f WHERE f.title = plays.title AND f.artist = plays.artist) fav FROM plays WHERE {W} ORDER BY at DESC LIMIT 12`),
+      // Your favourite songs (all of them), with their plays in this period.
+      favourites: q(`SELECT f.title, f.artist, 1 fav, (SELECT COUNT(*) FROM plays WHERE f.title = plays.title AND f.artist = plays.artist AND {W}) n,
+        (SELECT MAX(spotify_url) FROM plays WHERE f.title = plays.title AND f.artist = plays.artist) spotify
+        FROM favourites f ORDER BY n DESC, f.at DESC LIMIT 100`),
       notes: notes(q),
     };
   }
@@ -79,7 +85,7 @@ module.exports = tg => {
     poll: { every: 60 * 1000, run: () => tg.update() },
     state: () => ({ available: tg.listening.available, range: s.range, source: s.source, plays: tg.listening.available ? tg.listening.stats().plays : 0,
       // (changes when a note is added, changed or removed anywhere, so the card reloads)
-      noted: tg.listening.available ? tg.listening.query(`SELECT COUNT(*) || ':' || COALESCE(SUM(LENGTH(COALESCE(tags, '')) + LENGTH(COALESCE(note, ''))), 0) k FROM plays WHERE tags IS NOT NULL OR note IS NOT NULL`)[0].k : '' }),
+      noted: tg.listening.available ? tg.listening.query(`SELECT (SELECT COUNT(*) || ':' || COALESCE(MAX(at), 0) FROM favourites) || ':' || COUNT(*) || ':' || COALESCE(SUM(LENGTH(COALESCE(tags, '')) + LENGTH(COALESCE(note, ''))), 0) k FROM plays WHERE tags IS NOT NULL OR note IS NOT NULL`)[0].k : '' }),
     routes: {
       // ?range=7d|30d|365d|all&source=all|vinyl|spotify (defaults: the saved choice)
       'GET /summary': ({ query }) => summary(query.get('range') || undefined, query.get('source') || undefined),

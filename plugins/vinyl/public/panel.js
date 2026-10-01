@@ -74,7 +74,7 @@
     h.innerHTML = s.history.length ? '<table class="wx"></table>' : '';
     for (const t of s.history) {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td></td><td></td><td class="hint"></td><td style="width:1%;padding-right:0"></td>';
+      tr.innerHTML = '<td></td><td></td><td class="hint"></td><td style="width:1%;padding-right:0;white-space:nowrap"></td>';
       // The song on Spotify (saved with each match), or a Spotify search for older ones.
       const link = document.createElement('a');
       link.href = (t.spotify || '').startsWith('https://open.spotify.com/') ? t.spotify
@@ -93,6 +93,7 @@
       // Your note on this play (it skips, crackles…), kept in the listening log.
       const marks = TG.noteText(t);
       if (marks) { const m = document.createElement('span'); m.className = 'play-note'; m.textContent = marks; tr.children[1].append(m); }
+      if ('fav' in t) tr.children[3].append(TG.favButton(t));   // a favourite song (kept in the listening log)
       if (t.id) {
         const nb = document.createElement('button');
         nb.className = 'note-btn'; nb.textContent = marks ? 'Edit note' : 'Note'; nb.title = 'Mark this track: skips, crackles, poor quality… and add a comment';

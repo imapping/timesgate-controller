@@ -70,7 +70,9 @@ How it keeps to the monthly budgets (AudD 1,000 and ACRCloud 300 requests by def
 
 Only the clips are sent to the services. Nothing is saved to disk: the last clip is kept in memory so you can listen to what was sent and each service's answer (the card's "listen" link, from a trusted computer).
 
-## Notes on tracks
+## Favourites and notes on tracks
+
+The star next to a song in the history makes it a favourite; the Listening reports card lists your favourites.
 
 Each song in the card's history has a **Note** button: mark it as Skips, Crackles, Poor quality, Needs cleaning or Wrong song, and
 add a comment. Notes are saved with the play in the listening log, and the Listening reports card lists them.

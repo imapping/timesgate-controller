@@ -106,7 +106,27 @@ const TG = (() => {
   }
   // A play's marks and comment as one line: "Skips · Crackles — jumps in the chorus" ('' if none).
   const noteText = play => [String(play.tags || '').split(',').filter(Boolean).join(' · '), play.note].filter(Boolean).join(' — ');
-  return { plugin, editNote, noteText, get state() { return engineState; } };
+  // A star button that makes a song a favourite (or not). song: { title, artist, fav }; after(song) runs once it's saved.
+  function favButton(song, after) {
+    const b = document.createElement('button');
+    b.className = 'fav-btn';
+    const show = () => {
+      b.textContent = song.fav ? '★' : '☆'; b.classList.toggle('on', !!song.fav); b.setAttribute('aria-pressed', !!song.fav);
+      b.title = song.fav ? 'A favourite (click to remove)' : 'Add to favourites'; b.setAttribute('aria-label', 'Favourite');
+    };
+    b.onclick = async () => {
+      try {
+        const r = await fetch('/api/listening/favourite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: song.title, artist: song.artist, on: !song.fav }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || `Server error ${r.status}`);
+        song.fav = d.favourite; show();
+        if (after) after(song);
+      } catch (e) { log('Favourites: ' + e.message, 'e'); }
+    };
+    show();
+    return b;
+  }
+  return { plugin, editNote, noteText, favButton, get state() { return engineState; } };
 })();
 
 // ---------- loading panels ----------

@@ -420,14 +420,16 @@ module.exports = tg => {
 
   const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the keys from the computer running the controller, or one it trusts.'), { status: 403 }); };
   // (The keys themselves never go to the page; only whether each service is set up.)
-  // The history with each song's play in the listening log (its id, and your marks and comment on it).
+  // The history with each song's play in the listening log (its id, and your marks and comment on it),
+  // and whether the song is a favourite.
   function historyWithNotes() {
     const list = s.history.slice(0, 8);
     if (!tg.listening.available) return list;
     try {
       return list.map(h => {
         const p = tg.listening.query('SELECT id, tags, note FROM plays WHERE source = ? AND at = ? AND title = ? AND artist = ?', ['vinyl', h.at, h.title, h.artist])[0];
-        return p ? { ...h, id: p.id, tags: p.tags, note: p.note } : h;
+        const fav = tg.listening.query('SELECT 1 FROM favourites WHERE title = ? AND artist = ?', [h.title, h.artist]).length > 0;
+        return p ? { ...h, id: p.id, tags: p.tags, note: p.note, fav } : { ...h, fav };
       });
     } catch { return list; }
   }

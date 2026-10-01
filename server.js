@@ -122,6 +122,12 @@ const server = http.createServer(async (req, res) => {
       const play = listening.annotate(body.id, body);
       return play ? sendJson(res, 200, play) : sendJson(res, 404, { error: 'That play isn\'t in the listening log.' });
     }
+    // A favourite song, or not: { title, artist, on }.
+    if (req.method === 'POST' && url.pathname === '/api/listening/favourite') {
+      const body = JSON.parse((await readBody(req)).toString() || '{}');
+      const fav = listening.favourite(body.title, body.artist, !!body.on);
+      return fav ? sendJson(res, 200, fav) : sendJson(res, 400, { error: 'A favourite needs a title and an artist.' });
+    }
 
     // The microphone: status and level, the device list, and choosing one.
     if (url.pathname === '/api/mic') {
