@@ -212,6 +212,9 @@
   // Choosing the record by hand: find it in the Discogs collection and pick a side; then its track list is shown,
   // with what's playing and what's next.
   let records = null, recordsFor = null;
+  // The record's page on Discogs (to check it's the right pressing).
+  const discogsLink = (id, text) => Object.assign(document.createElement('a'), { href: 'https://www.discogs.com/release/' + encodeURIComponent(id), target: '_blank', rel: 'noopener',
+    title: 'This record on Discogs', textContent: text, style: 'color:inherit' });
   const sideName = side => (side === '' ? 'Whole record' : /^Disc /.test(side) ? side : 'Side ' + side);
   function drawPick() {
     if (!st) return;
@@ -220,7 +223,7 @@
     $p('#vnPickFind').hidden = !d.set || !d.records;
     if (!d.set) $p('#vnPickHint').textContent = 'Add your Discogs collection under Settings → Your collection first. Then you can pick the record and side you\u2019re about to play, and its track list names each track: no recognition service needed.';
     if (c) {
-      $p('#vnPickTitle').textContent = `${c.artist} — ${c.album}${c.side === '' ? '' : ' · ' + sideName(c.side)}`;
+      $p('#vnPickTitle').replaceChildren(`${c.artist} — `, discogsLink(c.id, c.album), c.side === '' ? '' : ' · ' + sideName(c.side));
       const box = $p('#vnPickTracks'), playing = st.phase === 'playing' && st.track ? c.index - 1 : -1, key = JSON.stringify([c.id, c.side, c.index, playing]);
       if (box.dataset.key !== key) {
         box.dataset.key = key;
@@ -251,7 +254,7 @@
     for (const r of found.slice(0, 12)) {
       const tr = document.createElement('tr');
       tr.innerHTML = '<td></td><td></td><td style="white-space:nowrap;text-align:right;padding-right:0"></td>';
-      tr.children[0].textContent = r.title + (r.year ? ` (${r.year})` : '');
+      tr.children[0].append(discogsLink(r.id, r.title), r.year ? ` (${r.year})` : '');
       tr.children[1].textContent = r.artist;
       for (const sd of r.sides) {
         const b = document.createElement('button');
