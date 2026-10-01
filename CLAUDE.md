@@ -18,7 +18,8 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
   the page plays it through Web Audio). It uses ffmpeg on Windows and arecord on a Pi, and runs only while something uses it.
 - `listening.js`: the listening log, every song heard (Vinyl) or played (Spotify), in SQLite at
   `data/listening.db` via better-sqlite3 (pinned to 12.11.1, the last to support the Pi's Node 20).
-  Plugins use `tg.listening.add/query`.
+  Plugins use `tg.listening.add/query/annotate`. `POST /api/listening/note` saves the user's marks and comment on a play
+  (the page's `TG.editNote`).
 - `plugins/vinyl/discogs.js`: the user's Discogs record collection, saved in `data/vinyl-discogs.json`. Vinyl uses it to
   give each identified song the album, year, cover and side/track of the record they own.
 - `buttons.js`: reads the USB button box through node-hid, and runs the action assigned to each button.

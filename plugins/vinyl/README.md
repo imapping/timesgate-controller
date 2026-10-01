@@ -70,6 +70,11 @@ How it keeps to the monthly budgets (AudD 1,000 and ACRCloud 300 requests by def
 
 Only the clips are sent to the services. Nothing is saved to disk: the last clip is kept in memory so you can listen to what was sent and each service's answer (the card's "listen" link, from a trusted computer).
 
+## Notes on tracks
+
+Each song in the card's history has a **Note** button: mark it as Skips, Crackles, Poor quality, Needs cleaning or Wrong song, and
+add a comment. Notes are saved with the play in the listening log, and the Listening reports card lists them.
+
 ## Input and live listening
 
 The card has its own copy of the Microphone card's controls: which input to use, a 10-second test,

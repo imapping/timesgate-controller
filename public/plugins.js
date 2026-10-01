@@ -64,7 +64,49 @@ const TG = (() => {
     return p;
   }
   onEngineState(s => { engineState = s; Object.values(reg).forEach(p => p._state(s)); });
-  return { plugin, get state() { return engineState; } };
+
+  // Marks and a comment on a play in the listening log (a record that skips, a wrong match…).
+  // play: { id, title, artist, tags: 'Skips,Crackles' or null, note }. Opens a small dialog; resolves
+  // to the saved play, or null if it was closed without saving.
+  const NOTE_TAGS = ['Skips', 'Crackles', 'Poor quality', 'Needs cleaning', 'Wrong song'];
+  function editNote(play) {
+    return new Promise(resolve => {
+      const dlg = document.createElement('dialog');
+      dlg.className = 'note-dlg';
+      dlg.innerHTML = '<h2>Note on this track</h2><p class="hint" style="margin-top:0"></p><div class="chips"></div>' +
+        '<input type="text" maxlength="300" placeholder="Comment (optional), e.g. jumps in the chorus" aria-label="Comment">' +
+        '<div class="row" style="margin-bottom:0"><button class="primary">Save</button><button class="nd-clear">Clear</button><button class="nd-cancel">Cancel</button><span class="hint" style="margin:0"></span></div>';
+      dlg.querySelector('p').textContent = `${play.title} — ${play.artist}`;
+      const have = new Set(String(play.tags || '').split(',').filter(Boolean)), chips = dlg.querySelector('.chips');
+      for (const tag of [...new Set([...NOTE_TAGS, ...have])]) {
+        const b = document.createElement('button');
+        b.textContent = tag; b.setAttribute('aria-pressed', have.has(tag)); b.classList.toggle('on', have.has(tag));
+        b.onclick = () => { have.has(tag) ? have.delete(tag) : have.add(tag); b.classList.toggle('on', have.has(tag)); b.setAttribute('aria-pressed', have.has(tag)); };
+        chips.append(b);
+      }
+      const text = dlg.querySelector('input'), info = dlg.querySelector('.row .hint');
+      text.value = play.note || '';
+      let result = null;
+      const save = async (tags, note) => {
+        try {
+          const r = await fetch('/api/listening/note', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: play.id, tags, note }) });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(d.error || `Server error ${r.status}`);
+          result = d; dlg.close();
+        } catch (e) { info.textContent = e.message; }
+      };
+      dlg.querySelector('.primary').onclick = () => save([...have], text.value);
+      text.onkeydown = e => { if (e.key === 'Enter') save([...have], text.value); };
+      dlg.querySelector('.nd-clear').onclick = () => save([], '');
+      dlg.querySelector('.nd-cancel').onclick = () => dlg.close();
+      dlg.onclose = () => { dlg.remove(); resolve(result); };
+      document.body.append(dlg);
+      dlg.showModal();
+    });
+  }
+  // A play's marks and comment as one line: "Skips · Crackles — jumps in the chorus" ('' if none).
+  const noteText = play => [String(play.tags || '').split(',').filter(Boolean).join(' · '), play.note].filter(Boolean).join(' — ');
+  return { plugin, editNote, noteText, get state() { return engineState; } };
 })();
 
 // ---------- loading panels ----------

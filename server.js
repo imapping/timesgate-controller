@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const engine = require('./engine');
 const plugins = require('./plugin-host');
 const mic = require('./mic');
+const listening = require('./listening');
 const buttons = require('./buttons');
 
 const PORT = Number(process.env.PORT) || 8080;
@@ -114,6 +115,13 @@ const server = http.createServer(async (req, res) => {
     if (await plugins.route(req, res, url)) return;
 
     if (req.method === 'GET' && url.pathname === '/api/system') return sendJson(res, 200, systemStats());
+
+    // Marks and a comment on one play in the listening log: { id, tags: ['Skips', …], note }.
+    if (req.method === 'POST' && url.pathname === '/api/listening/note') {
+      const body = JSON.parse((await readBody(req)).toString() || '{}');
+      const play = listening.annotate(body.id, body);
+      return play ? sendJson(res, 200, play) : sendJson(res, 404, { error: 'That play isn\'t in the listening log.' });
+    }
 
     // The microphone: status and level, the device list, and choosing one.
     if (url.pathname === '/api/mic') {

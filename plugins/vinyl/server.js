@@ -341,7 +341,7 @@ module.exports = tg => {
     // The all-time listening log (data/listening.db).
     try {
       tg.listening.add({ at: now, title: t.title, artist: t.artist, album: t.album, year: t.year, duration_ms: res.durationMs || extra.duration,
-        isrc: res.isrc || extra.isrc, spotify_url: t.spotify, label: res.label });
+        isrc: res.isrc || extra.isrc, spotify_url: t.spotify, label: res.label, position: t.pos });
     } catch (e) { tg.log('Listening log:', e.message); }
     tg.save();
     if (track === t && t.art) tg.update();
@@ -420,6 +420,17 @@ module.exports = tg => {
 
   const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the keys from the computer running the controller, or one it trusts.'), { status: 403 }); };
   // (The keys themselves never go to the page; only whether each service is set up.)
+  // The history with each song's play in the listening log (its id, and your marks and comment on it).
+  function historyWithNotes() {
+    const list = s.history.slice(0, 8);
+    if (!tg.listening.available) return list;
+    try {
+      return list.map(h => {
+        const p = tg.listening.query('SELECT id, tags, note FROM plays WHERE source = ? AND at = ? AND title = ? AND artist = ?', ['vinyl', h.at, h.title, h.artist])[0];
+        return p ? { ...h, id: p.id, tags: p.tags, note: p.note } : h;
+      });
+    } catch { return list; }
+  }
   const state = () => ({
     active, phase, status, until: active ? until : null,
     provider: s.provider, auddSet: SERVICES.audd.ready(), acrSet: SERVICES.acr.ready(), acrHost: s.acr.host,
@@ -429,7 +440,7 @@ module.exports = tg => {
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link,
       where: track.where, discogs: track.discogs },
     discogs: discogs.state(),
-    history: s.history.slice(0, 8),
+    history: historyWithNotes(),
     lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome, cleaned: lastClip.cleaned, speedFixed: lastClip.speedFixed },
     logged: tg.listening.available ? tg.listening.stats().plays : null,   // plays in the listening log, from every source
   });
@@ -438,6 +449,7 @@ module.exports = tg => {
     render: async () => renderVinyl(track, track ? await artFor(track.art) : null, active ? status : 'Switched off'),
     state,
     routes: {
+      'GET /state': () => state(),
       'POST /on': ctx => { turnOn(ctx.unit); return state(); },
       'POST /off': () => { turnOff(); return state(); },
       'POST /now': ctx => { identifyNow(ctx.unit); return state(); },

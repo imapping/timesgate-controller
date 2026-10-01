@@ -74,7 +74,7 @@
     h.innerHTML = s.history.length ? '<table class="wx"></table>' : '';
     for (const t of s.history) {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td></td><td></td><td class="hint"></td>';
+      tr.innerHTML = '<td></td><td></td><td class="hint"></td><td style="width:1%;padding-right:0"></td>';
       // The song on Spotify (saved with each match), or a Spotify search for older ones.
       const link = document.createElement('a');
       link.href = (t.spotify || '').startsWith('https://open.spotify.com/') ? t.spotify
@@ -90,6 +90,15 @@
         tr.children[1].append(rec, t.pos ? ` (${t.pos})` : '');
       } else if (t.album) tr.children[1].append(t.album);
       tr.children[2].textContent = new Date(t.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+      // Your note on this play (it skips, crackles…), kept in the listening log.
+      const marks = TG.noteText(t);
+      if (marks) { const m = document.createElement('span'); m.className = 'play-note'; m.textContent = marks; tr.children[1].append(m); }
+      if (t.id) {
+        const nb = document.createElement('button');
+        nb.className = 'note-btn'; nb.textContent = marks ? 'Edit note' : 'Note'; nb.title = 'Mark this track: skips, crackles, poor quality… and add a comment';
+        nb.onclick = async () => { if (await TG.editNote(t)) apply(await p.api('state')); };
+        tr.children[3].append(nb);
+      }
       h.firstChild.append(tr);
     }
     if (firstTrack && s.track) p.runPreview().catch(() => {});

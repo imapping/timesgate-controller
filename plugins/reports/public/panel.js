@@ -3,7 +3,7 @@
 (() => {
   const p = TG.plugin('reports');
   const $p = sel => p.el(sel);
-  let data = null, knownPlays = null, loading = false;
+  let data = null, knownPlays = null, knownNotes = null, loading = false;
 
   const SOURCE = { vinyl: 'the turntable (Vinyl)', spotify: 'Spotify' };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -111,12 +111,41 @@
         a.href = (r.spotify || '').startsWith('https://open.spotify.com/') ? r.spotify : 'https://open.spotify.com/search/' + encodeURIComponent(`${r.title} ${r.artist}`);
         a.target = '_blank'; a.rel = 'noopener'; a.style.color = 'inherit'; a.title = 'Open in Spotify';
         td.append(a);
+        const marks = TG.noteText(r);
+        if (marks) td.append(el('span', 'play-note', marks));
         tr.append(td, el('td', null, r.artist), el('td', 'hint', SOURCE[r.source] ? (r.source === 'vinyl' ? 'turntable' : 'Spotify') : r.source),
-          el('td', 'hint', new Date(r.at).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })));
+          el('td', 'hint', new Date(r.at).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })), noteCell(r, marks));
         table.append(tr);
       }
       box.append(table);
     }
+
+    // Every play in this period with a mark or a comment.
+    const nb = $p('#rpNotes');
+    nb.innerHTML = '';
+    $p('#rpNoteCounts').textContent = d.notes.byTag.length ? '· ' + d.notes.byTag.map(t => `${t.tag} ${t.n}`).join(' · ') : '';
+    if (!d.notes.rows.length) nb.append(el('div', 'rp-empty', 'No notes in this period. Use Note on a play to mark a track that skips, crackles or was matched wrongly.'));
+    else {
+      const table = el('table', 'wx rp-recent');
+      for (const r of d.notes.rows) {
+        const tr = el('tr'), td = el('td', null, r.title);
+        td.append(el('span', 'play-note', TG.noteText(r)));
+        tr.append(td, el('td', null, r.artist + (r.album ? ' — ' + r.album : '') + (r.position ? ` (${r.position})` : '')),
+          el('td', 'hint', new Date(r.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })), noteCell(r, true));
+        table.append(tr);
+      }
+      nb.append(table);
+      if (d.notes.total > d.notes.rows.length) nb.append(el('div', 'rp-empty', `Showing the latest ${d.notes.rows.length} of ${d.notes.total}.`));
+    }
+  }
+  // The Note button for a play (saving reloads the report).
+  function noteCell(r, has) {
+    const td = el('td'), b = el('button', 'note-btn', has ? 'Edit note' : 'Note');
+    td.style.cssText = 'width:1%;padding-right:0';
+    b.title = 'Mark this track: skips, crackles, poor quality… and add a comment';
+    b.onclick = async () => { if (await TG.editNote(r)) load(); };
+    td.append(b);
+    return td;
   }
 
   async function load(options) {
@@ -132,6 +161,6 @@
   // Reload when the log grows (or the period is changed from another browser).
   p.onState(s => {
     if (!s.available) { p.info('The listening log isn\'t available on this computer.'); return; }
-    if (knownPlays !== s.plays || !data || data.range !== s.range || data.source !== s.source) { knownPlays = s.plays; load(); }
+    if (knownPlays !== s.plays || knownNotes !== s.noted || !data || data.range !== s.range || data.source !== s.source) { knownPlays = s.plays; knownNotes = s.noted; load(); }
   });
 })();

@@ -13,6 +13,15 @@ module.exports = tg => {
   if (!(s.range in RANGES)) s.range = '30d';
   s.source ??= 'all';
 
+  // The plays you've marked or commented on (it skips, crackles…), newest first, and how many have each mark.
+  function notes(q) {
+    const rows = q(`SELECT id, at, source, title, artist, album, position, tags, note FROM plays
+      WHERE {W} AND (tags IS NOT NULL OR note IS NOT NULL) ORDER BY at DESC LIMIT 200`);
+    const count = {};
+    for (const r of rows) for (const t of String(r.tags || '').split(',').filter(Boolean)) count[t] = (count[t] || 0) + 1;
+    return { total: rows.length, byTag: Object.entries(count).map(([tag, n]) => ({ tag, n })).sort((a, b) => b.n - a.n || a.tag.localeCompare(b.tag)), rows: rows.slice(0, 50) };
+  }
+
   function summary(range = s.range, source = s.source) {
     if (!tg.listening.available) throw Object.assign(new Error('The listening log isn\'t available on this computer.'), { status: 503 });
     if (!(range in RANGES)) range = '30d';
@@ -59,7 +68,8 @@ module.exports = tg => {
         GROUP BY album COLLATE NOCASE, artist COLLATE NOCASE ORDER BY n DESC, MAX(at) DESC LIMIT 10`),
       series: { unit: byMonth ? 'month' : 'day', points },
       hours,
-      recent: q(`SELECT at, source, title, artist, album, spotify_url spotify FROM plays WHERE {W} ORDER BY at DESC LIMIT 12`),
+      recent: q(`SELECT id, at, source, title, artist, album, spotify_url spotify, tags, note FROM plays WHERE {W} ORDER BY at DESC LIMIT 12`),
+      notes: notes(q),
     };
   }
 
@@ -67,7 +77,9 @@ module.exports = tg => {
     render: () => ({ speed: RP_SPEED, parts: rpRender(summary()).map((sc, i) => ({ key: sc.key, jobs: [{ screen: i, frames: sc.frames }] })) }),
     // New plays arrive from other plugins: look again every minute (only changed screens are re-sent).
     poll: { every: 60 * 1000, run: () => tg.update() },
-    state: () => ({ available: tg.listening.available, range: s.range, source: s.source, plays: tg.listening.available ? tg.listening.stats().plays : 0 }),
+    state: () => ({ available: tg.listening.available, range: s.range, source: s.source, plays: tg.listening.available ? tg.listening.stats().plays : 0,
+      // (changes when a note is added, changed or removed anywhere, so the card reloads)
+      noted: tg.listening.available ? tg.listening.query(`SELECT COUNT(*) || ':' || COALESCE(SUM(LENGTH(COALESCE(tags, '')) + LENGTH(COALESCE(note, ''))), 0) k FROM plays WHERE tags IS NOT NULL OR note IS NOT NULL`)[0].k : '' }),
     routes: {
       // ?range=7d|30d|365d|all&source=all|vinyl|spotify (defaults: the saved choice)
       'GET /summary': ({ query }) => summary(query.get('range') || undefined, query.get('source') || undefined),

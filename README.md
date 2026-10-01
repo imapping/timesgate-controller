@@ -327,7 +327,8 @@ Some plugins use online services. Each user sets up their own account or key; no
 
 Every song Vinyl identifies, and every song you play on Spotify (once it has played for 30 seconds),
 is saved to a **listening log**, an SQLite database at `data/listening.db`. The **Listening reports**
-plugin shows it: top artists and songs, plays over time, and when you listen.
+plugin shows it: top artists and songs, plays over time, and when you listen. You can add a **note** to any play (it skips,
+crackles, needs cleaning, was matched wrongly, or your own comment); the reports list every noted track.
 
 Settings, logins and tokens are saved in `data/`, which is never served by the web server and is
 excluded from git.
