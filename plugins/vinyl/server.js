@@ -48,7 +48,8 @@ function cleanClip(wav) {
 
 // ACRCloud project hosts look like identify-eu-west-1.acrcloud.com (keys are only ever sent there).
 const ACR_HOST = /^identify-[a-z0-9-]+\.acrcloud\.com$/;
-const PROVIDERS = ['audd', 'acr', 'both'];   // both: AudD first, ACRCloud when AudD finds nothing
+const PROVIDERS = ['audd', 'acr', 'both'];
+const HUMMING_MIN = 0.7;   // the least confidence to accept an ACRCloud cover-song (humming) match   // both: AudD first, ACRCloud when AudD finds nothing
 
 const monthKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 
@@ -139,14 +140,24 @@ module.exports = tg => {
     const code = d.status?.code;
     if (code === 1001) return { result: null };   // no result
     if (code !== 0) return { error: `${d.status?.msg || 'error'} (${code ?? r.status})` };
-    const m = d.metadata?.music?.[0];
-    if (!m) return { result: null };
+    // Fingerprint matches come under "music". With cover-song (humming) identification switched on in
+    // the project, looser matches come under "humming", with a score: use the best if it's sure enough.
+    let m = d.metadata?.music?.[0], note = '';
+    if (!m) {
+      const h = (d.metadata?.humming || []).map(x => ({ ...x, sure: Number(x.score) > 1 ? Number(x.score) / 100 : Number(x.score) || 0 }))
+        .sort((a, b) => b.sure - a.sure)[0];
+      if (!h) return { result: null };
+      const guess = `${Math.round(h.sure * 100)}% cover-song match`;
+      if (h.sure < HUMMING_MIN) return { result: null, note: ` (best guess: ${h.title} — ${(h.artists || []).map(a => a.name).join(', ')}, ${guess}, too unsure)` };
+      m = h; note = ` (${guess})`;
+    }
     const spId = m.external_metadata?.spotify?.track?.id;
     return { result: {
       title: m.title, artist: (m.artists || []).map(a => a.name).join(', '), album: m.album?.name || '',
       year: (m.release_date || '').slice(0, 4), durationMs: m.duration_ms || null, posMs: m.play_offset_ms ?? null,
       isrc: m.external_ids?.isrc || null, label: m.label || null,
       spotify: spId ? `https://open.spotify.com/track/${spId}` : null, link: null, art: null,   // art: looked up from Spotify
+      note,
     } };
   }
 
@@ -234,8 +245,8 @@ module.exports = tg => {
           continue;
         }
         answered = true;
-        if (a.result) { found = { ...a.result, service: sv.name }; notes.push(`${sv.name}: matched ${found.title} — ${found.artist}`); break; }
-        notes.push(`${sv.name}: no match`);
+        if (a.result) { found = { ...a.result, service: sv.name }; notes.push(`${sv.name}: matched ${found.title} — ${found.artist}${found.note || ''}`); break; }
+        notes.push(`${sv.name}: no match${a.note || ''}`);
       }
       lastClip.outcome = notes.join(' · ') || 'not sent';
       if (cancelled()) return;

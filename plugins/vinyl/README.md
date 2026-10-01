@@ -19,7 +19,9 @@ one it trusts). The keys stay on the controller and are never sent to the page.
 - **ACRCloud:** often better with records heard through speakers in a room. In the ACRCloud console,
   create an **Audio & Video Recognition** project (audio source **Recorded Audio**, bucket
   **ACRCloud Music**). Copy its **host** (like `identify-eu-west-1.acrcloud.com`), **access key** and
-  **access secret** into the card. ACRCloud has a free trial. In the project, switch on Spotify under its third-party ID settings so matches come with Spotify links.
+  **access secret** into the card. ACRCloud has a free trial. In the project, switch on Spotify under its third-party ID settings so matches come with Spotify links. If the project also has **cover song (humming) identification**, those looser matches are used
+  when there's no fingerprint match and ACRCloud is at least 70% sure; less sure guesses are shown in
+  the card's "Last clip sent" line but not used.
 - **AudD, then ACRCloud if no match:** asks AudD first, and only asks ACRCloud when AudD finds
   nothing. Each service has its own monthly limit in the card.
 
