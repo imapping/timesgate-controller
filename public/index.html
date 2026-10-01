@@ -251,6 +251,7 @@
     <div class="row"><span id="micStatus" class="hint" style="margin:0"></span></div>
     <div class="row">
       <button id="micLive" title="Hear what this input hears, in this browser">Listen live</button>
+      <label title="Stereo at 44.1 kHz (about 176 KB a second). Untick for a lighter mono stream at 22 kHz."><input type="checkbox" id="micHq" checked> High quality (stereo)</label>
       <span id="micLiveInfo" class="hint" style="margin:0"></span>
     </div>
     <div class="row">
@@ -362,6 +363,8 @@
       <button id="unitRemove" class="danger" hidden>Remove</button>
     </div>
     <p class="hint">To add another Times Gate, press <b>Find on network</b> and pick it. The list at the top then switches which one this page controls; each keeps its own screens, timer, score and lights.</p>
+    <h2 style="margin-top:16px">This computer</h2>
+    <p id="sysInfo" class="hint" style="margin-top:0" title="The computer running the controller (updated every 5 seconds)">…</p>
   </section>
 
   <section class="wide" id="buttons">
@@ -976,22 +979,31 @@ $('micLive').onclick = async () => {
   const live = micLive = { ctx: new AudioContext(), ctrl: new AbortController() };
   $('micLive').textContent = 'Stop listening'; $('micLiveInfo').textContent = 'Connecting…';
   try {
-    const r = await fetch('/api/mic/stream', { signal: live.ctrl.signal });
+    const hq = $('micHq').checked;
+    const r = await fetch('/api/mic/stream' + (hq ? '?hq' : ''), { signal: live.ctrl.signal });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Server error ' + r.status);
-    $('micLiveInfo').textContent = 'Live.';
-    const reader = r.body.getReader(), RATE = 22050;
-    let skip = 44, rest = new Uint8Array(0), next = 0;   // skip the WAV header
+    const reader = r.body.getReader();
+    let rest = new Uint8Array(0), next = 0, rate = 0, chans = 0;   // rate and channels come from the WAV header
     for (;;) {
       const { value, done } = await reader.read();
       if (done || micLive !== live) break;
       let bytes = new Uint8Array(rest.length + value.length);
       bytes.set(rest); bytes.set(value, rest.length);
-      if (skip) { const k = Math.min(skip, bytes.length); bytes = bytes.subarray(k); skip -= k; }
-      const n = bytes.length >> 1;
-      rest = bytes.slice(n * 2);
+      if (!rate) {   // the 44-byte WAV header says what's coming
+        if (bytes.length < 44) { rest = bytes; continue; }
+        const h = new DataView(bytes.buffer, bytes.byteOffset, 44);
+        chans = h.getUint16(22, true); rate = h.getUint32(24, true);
+        bytes = bytes.subarray(44);
+        $('micLiveInfo').textContent = `Live (${chans === 2 ? 'stereo' : 'mono'}, ${(rate / 1000).toFixed(rate % 1000 ? 1 : 0)} kHz).`;
+      }
+      const n = Math.floor(bytes.length / (chans * 2));   // whole frames
+      rest = bytes.slice(n * chans * 2);
       if (!n) continue;
-      const view = new DataView(bytes.buffer, bytes.byteOffset, n * 2), buf = live.ctx.createBuffer(1, n, RATE), ch = buf.getChannelData(0);
-      for (let i = 0; i < n; i++) ch[i] = view.getInt16(i * 2, true) / 32768;
+      const view = new DataView(bytes.buffer, bytes.byteOffset, n * chans * 2), buf = live.ctx.createBuffer(chans, n, rate);
+      for (let c = 0; c < chans; c++) {
+        const ch = buf.getChannelData(c);
+        for (let i = 0; i < n; i++) ch[i] = view.getInt16((i * chans + c) * 2, true) / 32768;
+      }
       const src = live.ctx.createBufferSource();
       src.buffer = buf; src.connect(live.ctx.destination);
       // Queue each piece after the last; (re)start with a small cushion if we ran dry or fell behind.
@@ -1005,6 +1017,29 @@ $('micLive').onclick = async () => {
   }
 };
 setInterval(async () => { try { showMic(await micCall()); } catch {} }, 1000);
+// Live listening quality is remembered in this browser; changing it while listening reconnects.
+try { if (localStorage.getItem('micHq') === '0') $('micHq').checked = false; } catch {}
+$('micHq').onchange = () => {
+  try { localStorage.setItem('micHq', $('micHq').checked ? '1' : '0'); } catch {}
+  if (micLive) { micLiveStop(); $('micLive').click(); }
+};
+
+// ---------- this computer ----------
+// How hard the computer running the controller is working (a Raspberry Pi also gives its temperature).
+async function showSystem() {
+  try {
+    const d = await (await fetch('/api/system')).json();
+    const dur = t => t >= 172800 ? Math.round(t / 86400) + ' days' : t >= 7200 ? Math.round(t / 3600) + ' hours' : Math.max(1, Math.round(t / 60)) + ' min';
+    $('sysInfo').textContent = [
+      d.host + (d.platform === 'linux' ? '' : ' (' + d.platform + ')'),
+      d.cpu == null ? null : `CPU ${d.cpu}% of ${d.cores} cores (the controller: ${d.controllerCpu}% of one)`,
+      d.temp == null ? null : `${d.temp} °C${d.temp >= 80 ? ' — hot, it may slow down' : ''}`,
+      `memory ${d.memUsedMB.toLocaleString()} of ${d.memTotalMB.toLocaleString()} MB (the controller: ${d.controllerMB} MB)`,
+      `up ${dur(d.uptimeS)}, the controller ${dur(d.runningS)}`,
+    ].filter(Boolean).join(' · ');
+  } catch {}
+}
+showSystem(); setInterval(showSystem, 5000);
 
 // ---------- start-up ----------
 // The server knows each Times Gate's address, so a new browser or phone connects straight away;

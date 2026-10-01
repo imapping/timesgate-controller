@@ -11,7 +11,8 @@ working with the page closed.
   They can be installed or removed from the page.
 - A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD and/or ACRCloud).
   You can also listen to it live from your PC, or, for a direct connection such as a turntable, from
-  any phone or computer on your network.
+  any phone or computer on your network, in stereo. The page also shows how hard the controller's
+  computer is working (CPU, temperature on a Pi, memory).
 - A **USB button box** (an arcade joystick kit) or game controller: map each button to any action
 - **Several Times Gates**, each with its own screens and settings
 

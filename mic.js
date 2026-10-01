@@ -1,13 +1,19 @@
-// The microphone, shared by plugins. It only runs while something is using it: plugins call
-// listen() (beats and levels, ~43 times a second) or record() (a short WAV clip), and the capture
-// process is stopped as soon as the last one lets go. Nothing is saved to disk.
+// The microphone (or a direct input such as a turntable), shared by plugins. It only runs while
+// something is using it: plugins call listen() (beats and levels, ~43 times a second) or record() (a
+// short WAV clip), and the capture process is stopped as soon as the last one lets go. Nothing is
+// saved to disk.
+// The capture is 44.1 kHz stereo, which the full-quality live stream passes on as it is. Everything
+// else (analysis, clips, the mono stream) uses mono at 22.05 kHz, made by averaging each pair of
+// stereo frames.
 // Windows: ffmpeg (DirectShow). Linux / Raspberry Pi: arecord (ALSA), or ffmpeg if arecord is missing.
 
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
 
-const RATE = 22050;           // samples per second, mono 16-bit
+const RATE = 22050;           // samples per second, mono 16-bit: what plugins get
+const CAP_RATE = RATE * 2, CAP_CH = 2;   // what's captured: 44.1 kHz stereo
+const CAP_BLOCK = CAP_CH * 2 * 2;        // bytes that make one mono sample: two stereo frames
 const HOP = 512;              // samples per analysis frame (~23 ms)
 const CONF_FILE = path.join(__dirname, 'data', 'mic.json');
 const WIN = process.platform === 'win32';
@@ -71,11 +77,11 @@ function devices() {
 
 function captureCommand(device) {
   const arecord = findArecord();
-  if (arecord) return [arecord, ['-q', '-D', device || 'default', '-f', 'S16_LE', '-c', '1', '-r', String(RATE), '-t', 'raw']];
+  if (arecord) return [arecord, ['-q', '-D', device || 'default', '-f', 'S16_LE', '-c', String(CAP_CH), '-r', String(CAP_RATE), '-t', 'raw']];
   const ff = findFfmpeg();
   if (!ff) throw new Error(WIN ? 'ffmpeg is not installed (winget install Gyan.FFmpeg)' : 'Install alsa-utils (arecord) or ffmpeg');
   const input = WIN ? ['-f', 'dshow', '-audio_buffer_size', '50', '-i', `audio=${device}`] : ['-f', 'alsa', '-i', device || 'default'];
-  return [ff, ['-hide_banner', '-loglevel', 'error', ...input, '-ac', '1', '-ar', String(RATE), '-f', 's16le', '-']];
+  return [ff, ['-hide_banner', '-loglevel', 'error', ...input, '-ac', String(CAP_CH), '-ar', String(CAP_RATE), '-f', 's16le', '-']];
 }
 
 // ---------- analysis: level and beats ----------
@@ -130,7 +136,9 @@ function makeAnalyser() {
 const listeners = new Map();  // token -> { fn, who, sensitivity }
 let proc = null, restartTimer = null, error = null, last = { level: 0, db: -99, bpm: null }, analyse = null;
 let pending = Buffer.alloc(0);
+let rawRest = Buffer.alloc(0);   // captured bytes that don't yet make a whole mono sample
 const recorders = new Set();  // { chunks, need, got, resolve }
+const hqListeners = new Set(); // fn(buffer of whole stereo frames): the full-quality live streams
 
 function start() {
   if (proc || restartTimer) return;
@@ -138,7 +146,7 @@ function start() {
   try { cmd = captureCommand(device()); }
   catch (e) { error = e.message; return; }
   if (WIN && !device()) { error = 'Choose a microphone first'; return; }
-  error = null; analyse = makeAnalyser(); pending = Buffer.alloc(0);
+  error = null; analyse = makeAnalyser(); pending = Buffer.alloc(0); rawRest = Buffer.alloc(0);
   const p = proc = spawn(cmd[0], cmd[1], { windowsHide: true });
   log('Listening.');
   let errText = '';
@@ -159,9 +167,23 @@ function stop() {
   if (proc) { const p = proc; proc = null; p.kill(); log('Stopped (nothing is using it).'); }
   last = { level: 0, db: -99, bpm: null };
 }
-const inUse = () => listeners.size > 0 || recorders.size > 0;
+const inUse = () => listeners.size > 0 || recorders.size > 0 || hqListeners.size > 0;
 
+// The capture's stereo bytes: pass whole frames to the full-quality streams, and turn them into mono.
 function onData(buf) {
+  const raw = rawRest.length ? Buffer.concat([rawRest, buf]) : buf;
+  const n = Math.floor(raw.length / CAP_BLOCK);
+  rawRest = raw.subarray(n * CAP_BLOCK);
+  if (!n) return;
+  if (hqListeners.size) { const whole = raw.subarray(0, n * CAP_BLOCK); for (const fn of hqListeners) fn(whole); }
+  // One mono sample per two stereo frames: the average of their four values (L, R, L, R).
+  const mono = Buffer.allocUnsafe(n * 2);
+  for (let i = 0, o = 0; i < n; i++, o += CAP_BLOCK)
+    mono.writeInt16LE((raw.readInt16LE(o) + raw.readInt16LE(o + 2) + raw.readInt16LE(o + 4) + raw.readInt16LE(o + 6)) >> 2, i * 2);
+  onMono(mono);
+}
+
+function onMono(buf) {
   for (const r of recorders) {
     const take = Math.min(buf.length, r.need - r.got);
     if (take > 0) { r.chunks.push(Buffer.from(buf.subarray(0, take))); r.got += take; }
@@ -183,21 +205,31 @@ function onData(buf) {
   if (!inUse()) stop();
 }
 
-// A WAV header for 16-bit mono at RATE. With no length (a live stream) it says "as long as possible".
-function wavHeader(bytes) {
+// A 16-bit WAV header (mono at RATE unless told otherwise). With no length (a live stream) it says
+// "as long as possible".
+function wavHeader(bytes, rate = RATE, channels = 1) {
   const h = Buffer.alloc(44), n = bytes ?? 0xFFFFFFFF - 36;
   h.write('RIFF', 0); h.writeUInt32LE(36 + n, 4); h.write('WAVE', 8);
-  h.write('fmt ', 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
-  h.writeUInt32LE(RATE, 24); h.writeUInt32LE(RATE * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
+  h.write('fmt ', 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(channels, 22);
+  h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * channels * 2, 28); h.writeUInt16LE(channels * 2, 32); h.writeUInt16LE(16, 34);
   h.write('data', 36); h.writeUInt32LE(n, 40);
   return h;
 }
 function wav(pcm) { return Buffer.concat([wavHeader(pcm.length), pcm]); }
 
-// Streams the live sound to an HTTP response as a never-ending WAV, until the listener disconnects.
+// Streams the live sound to an HTTP response as a never-ending WAV, until the listener disconnects:
+// mono at 22.05 kHz, or with hq the capture itself (44.1 kHz stereo, about 176 KB a second).
 // If they fall behind (a slow connection), sound is dropped rather than queued.
-function stream(req, res) {
+function stream(req, res, hq = false) {
   res.writeHead(200, { 'Content-Type': 'audio/wav', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  if (hq) {
+    res.write(wavHeader(undefined, CAP_RATE, CAP_CH));
+    const fn = buf => { if (res.writableLength < 1024 * 1024) res.write(buf); };
+    hqListeners.add(fn);
+    start();
+    req.on('close', () => { hqListeners.delete(fn); if (!inUse()) stop(); });
+    return;
+  }
   res.write(wavHeader());
   const off = listen(f => {
     if (res.writableLength > 256 * 1024) return;
@@ -230,7 +262,8 @@ function record(ms) {
 }
 
 function status() {
-  return { running: !!proc, error, device: device() || 'default', users: [...new Set([...listeners.values()].map(l => l.who))],
+  return { running: !!proc, error, device: device() || 'default',
+    users: [...new Set([...[...listeners.values()].map(l => l.who), ...(hqListeners.size ? ['live listening'] : [])])],
     recording: recorders.size > 0, level: last.level, db: last.db, bpm: last.bpm,
     tool: findArecord() ? 'arecord' : findFfmpeg() ? 'ffmpeg' : null, shared: isShared() };
 }

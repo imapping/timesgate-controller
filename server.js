@@ -78,6 +78,29 @@ let trusted = [];
 const loadTrusted = () => { try { trusted = JSON.parse(fs.readFileSync(TRUSTED_FILE, 'utf8')).hosts || []; } catch { trusted = []; } };
 loadTrusted();
 fs.watchFile(TRUSTED_FILE, { interval: 5000 }, loadTrusted);
+// How hard this computer is working, for the page: sampled every 5 seconds.
+let sys = { cpu: null, proc: null }, sysLast = null;
+function sampleSystem() {
+  const t = os.cpus().reduce((a, c) => { const x = c.times; a.idle += x.idle; a.total += x.user + x.nice + x.sys + x.idle + x.irq; return a; }, { idle: 0, total: 0 });
+  const now = { ...t, proc: process.cpuUsage(), at: Date.now() };
+  if (sysLast && now.total > sysLast.total) {
+    sys.cpu = Math.round(100 * (1 - (now.idle - sysLast.idle) / (now.total - sysLast.total)));
+    const used = (now.proc.user + now.proc.system - sysLast.proc.user - sysLast.proc.system) / 1000;   // ms of CPU by the controller
+    sys.proc = Math.round(100 * used / (now.at - sysLast.at));   // % of one core
+  }
+  sysLast = now;
+}
+sampleSystem(); setInterval(sampleSystem, 5000).unref();
+function systemStats() {
+  let temp = null;
+  try { temp = Math.round(Number(fs.readFileSync('/sys/class/thermal/thermal_zone0/temp', 'utf8')) / 100) / 10; } catch {}   // a Pi's CPU temperature
+  let free = os.freemem();
+  try { free = Number(/MemAvailable:s+(d+)/.exec(fs.readFileSync('/proc/meminfo', 'utf8'))[1]) * 1024; } catch {}   // Linux: free memory, not counting the disk cache
+  return { host: os.hostname(), platform: process.platform, cores: os.cpus().length, cpu: sys.cpu, controllerCpu: sys.proc, temp,
+    load: Math.round(os.loadavg()[0] * 100) / 100, memTotalMB: Math.round(os.totalmem() / 1048576), memUsedMB: Math.round((os.totalmem() - free) / 1048576),
+    controllerMB: Math.round(process.memoryUsage().rss / 1048576), uptimeS: Math.round(os.uptime()), runningS: Math.round(process.uptime()), node: process.version };
+}
+
 const isLoopback = req => {
   const a = String(req.socket.remoteAddress).replace(/^::ffff:/, '');
   return a === '127.0.0.1' || a === '::1' || trusted.includes(a);
@@ -89,6 +112,8 @@ const server = http.createServer(async (req, res) => {
     // Plugins: the manager at /api/plugins/…, and each plugin's own routes at /api/<id>/…
     if (url.pathname === '/api/plugins' || url.pathname.startsWith('/api/plugins/')) return await plugins.manage(req, res, url);
     if (await plugins.route(req, res, url)) return;
+
+    if (req.method === 'GET' && url.pathname === '/api/system') return sendJson(res, 200, systemStats());
 
     // The microphone: status and level, the device list, and choosing one.
     if (url.pathname === '/api/mic') {
@@ -111,7 +136,7 @@ const server = http.createServer(async (req, res) => {
     // on the network.
     if (req.method === 'GET' && url.pathname === '/api/mic/stream') {
       if (!isLoopback(req) && !mic.isShared()) return sendJson(res, 403, { error: 'Live listening only works from the computer running the controller, or one it trusts (unless the input is marked as a direct connection in the Microphone card).' });
-      return mic.stream(req, res);
+      return mic.stream(req, res, url.searchParams.has('hq'));   // ?hq: 44.1 kHz stereo
     }
 
     // Button boxes / game controllers (buttons.js): status and which action each input runs.

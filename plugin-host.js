@@ -28,7 +28,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const CONF_FILE = path.join(DATA_DIR, 'plugins.json');
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,31}$/;
 // /api/<id>/ routes that belong to the server itself.
-const RESERVED = new Set(['device', 'engine', 'picid', 'cloud', 'upload', 'uploads', 'plugins', 'actions', 'mic', 'buttons', 'core', 'listening']);
+const RESERVED = new Set(['device', 'engine', 'picid', 'cloud', 'upload', 'uploads', 'plugins', 'actions', 'mic', 'buttons', 'core', 'listening', 'system', 'units']);
 const MAX_ZIP = 20 * 1024 * 1024, MAX_UNZIPPED = 50 * 1024 * 1024;
 
 fs.mkdirSync(PLUGIN_DIR, { recursive: true });
