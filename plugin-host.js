@@ -33,7 +33,8 @@ const MAX_ZIP = 20 * 1024 * 1024, MAX_UNZIPPED = 50 * 1024 * 1024;
 
 fs.mkdirSync(PLUGIN_DIR, { recursive: true });
 fs.mkdirSync(DATA_DIR, { recursive: true });
-let conf = { disabled: [], pin: null };  // pin: { salt, hash } — lets other devices install/remove
+// pin: { salt, hash } — lets other devices install/remove. order: plugin ids in the order chosen on the page.
+let conf = { disabled: [], pin: null, order: [] };
 try { conf = { ...conf, ...JSON.parse(fs.readFileSync(CONF_FILE, 'utf8')) }; } catch {}
 const saveConf = () => fs.writeFileSync(CONF_FILE, JSON.stringify(conf, null, 2));
 
@@ -232,7 +233,15 @@ function info(r) {
     liveLabel: m.liveLabel || null, order: m.order ?? 100 };
 }
 function list() {
-  return [...plugins.values()].map(info).sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  // The order chosen on the page first; plugins not in it (newly installed) follow, by their own "order" and name.
+  const at = id => { const i = conf.order.indexOf(id); return i < 0 ? conf.order.length : i; };
+  return [...plugins.values()].map(info).sort((a, b) => at(a.id) - at(b.id) || a.order - b.order || a.name.localeCompare(b.name));
+}
+// ids: every plugin, in the order wanted on the page (also the order of "next / previous feature").
+function setOrder(ids) {
+  if (!Array.isArray(ids)) throw Object.assign(new Error('order: a list of plugin ids'), { status: 400 });
+  conf.order = [...new Set(ids.filter(id => typeof id === 'string' && plugins.has(id)))];
+  saveConf();
 }
 
 // ---------- actions (for buttons, scenes and other plugins) ----------
@@ -404,6 +413,7 @@ async function manage(req, res, url) {
   const body = isZip ? {} : JSON.parse(raw.toString() || '{}');
   switch (p) {
     case '/api/plugins/enable': setEnabled(body.id, body.on); break;
+    case '/api/plugins/order': setOrder(body.order); break;
     case '/api/plugins/action': return deps.sendJson(res, 200, { ok: true, result: await runAction(body.id, { unit: req.headers['x-tg-unit'], ...body.args }) ?? null });
     case '/api/plugins/pin':
       if (!deps.isLoopback(req)) return deps.sendJson(res, 403, { error: 'Set the PIN from the computer running the controller, or one it trusts.' });

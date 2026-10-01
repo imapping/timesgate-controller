@@ -63,7 +63,7 @@ id replaces it. Installed plugins can be turned off or removed on the page too.
 | `panel` | HTML file in `public/` for the card. |
 | `scripts` | Files in `public/` loaded into the page in this order, after the panel is added. |
 | `liveLabel` | Text of the "Keep it updated" tick box. |
-| `order` | Position of the card among plugins (lower first; built-ins use 10–30). |
+| `order` | Position of the card among plugins (lower first; built-ins use 10–30), until the user arranges them with ▲ ▼ in the Plugins card. |
 
 ## server.js
 

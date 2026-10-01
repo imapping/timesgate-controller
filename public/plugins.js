@@ -141,6 +141,7 @@ function drawPluginList(d) {
     const row = document.createElement('div');
     row.className = 'plug';
     row.innerHTML = '<div class="grow"><b></b> <span class="hint"></span> <a class="hint" hidden>Read me</a><small></small></div>' +
+      '<button class="pl-move" data-by="-1" title="Move up the page" aria-label="Move up">▲</button><button class="pl-move" data-by="1" title="Move down the page" aria-label="Move down">▼</button>' +
       '<label><input type="checkbox"> On</label><button class="danger">Remove</button>';
     row.querySelector('b').textContent = pl.name;
     row.querySelector('.hint').textContent = pl.version ? 'v' + pl.version : '';
@@ -155,7 +156,23 @@ function drawPluginList(d) {
       try { await pluginCall('enable', { id: pl.id, on: cb.checked }); location.reload(); }
       catch (e) { log('Plugins: ' + e.message, 'e'); cb.checked = !cb.checked; }
     };
-    row.querySelector('button').onclick = async () => {
+    // Move it up or down: the order of the cards on the page, and of "next / previous feature".
+    const i = d.plugins.indexOf(pl);
+    for (const b of row.querySelectorAll('.pl-move')) {
+      const j = i + Number(b.dataset.by);
+      b.disabled = j < 0 || j >= d.plugins.length;
+      b.onclick = async () => {
+        const ids = d.plugins.map(p => p.id);
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+        try {
+          const r = await pluginCall('order', { order: ids });
+          drawPluginList(r);
+          for (const p of r.plugins) { const sec = document.getElementById('plugin-' + p.id); if (sec) $('pluginPanels').append(sec); }
+          $('plList').children[j]?.querySelector(`.pl-move[data-by="${b.dataset.by}"]:not(:disabled), .pl-move:not(:disabled)`)?.focus();
+        } catch (e) { log('Plugins: ' + e.message, 'e'); }
+      };
+    }
+    row.querySelector('.danger').onclick = async () => {
       if (!confirm(`Remove the ${pl.name} plugin? Its files are deleted (its saved settings are kept).`)) return;
       try { await pluginCall('remove', { id: pl.id }); location.reload(); }
       catch (e) { log('Plugins: ' + e.message, 'e'); $('plInfo').textContent = e.message; }

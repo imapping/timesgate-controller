@@ -75,7 +75,7 @@ reports show top artists and songs, plays over time and when you listen, on the 
 
 ![Buttons card mapping joystick and buttons to actions](docs/screenshots/buttons.png)
 
-**Plugins:** turn them on or off, read their docs, or install new ones from a GitHub link.
+**Plugins:** turn them on or off, move them up or down the page, read their docs, or install new ones from a GitHub link.
 
 ![The Plugins card](docs/screenshots/plugins.png)
 

@@ -125,6 +125,8 @@
     border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; }
   .plug .grow small { display: block; color: var(--muted); }
   .plug .err { color: var(--err); }
+  .list .plug button.pl-move { padding: 4px 9px; font-size: 12px; line-height: 1.4; }
+  .list .plug button.pl-move:disabled { opacity: .35; cursor: default; }
   .btn-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line);
              transition: background .15s; }
   .btn-row:last-child { border-bottom: 0; }
@@ -414,6 +416,7 @@
 
   <section class="wide" id="plugins">
     <h2>Plugins</h2>
+    <p class="hint" style="margin-top:0">▲ and ▼ change the order of the cards on this page (and of the "next / previous feature" buttons).</p>
     <div id="plList" class="list" style="max-height:none"></div>
     <h2 style="margin-top:16px">Install a plugin</h2>
     <div class="row">
