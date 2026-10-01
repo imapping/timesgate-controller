@@ -31,6 +31,8 @@ module.exports = tg => {
 
   let active = false, until = 0, phase = 'off', status = 'Off', stopMic = null, offTimer = null;
   let track = null, misses = 0, retryAt = 0;
+  // The last clip sent to AudD and its answer, for checking what it hears (memory only, replaced each time).
+  let lastClip = null;   // { wav, at, outcome }
   let showOn;                    // the Times Gate it was started from (shown there if autoShow)
   let loudSince = 0, quietSince = 0, avgDb = null, power = 0;  // power: smoothed loudness (linear)
   const artCache = new Map();
@@ -100,6 +102,7 @@ module.exports = tg => {
       if (used() >= s.cap) return turnOff(`Stopped: this month's limit of ${s.cap} requests is used up.`);
       status = 'Listening to identify…';
       const wav = await tg.mic.record(CLIP_MS);
+      lastClip = { wav, at: Date.now(), outcome: 'sending…' };
       if (cancelled()) return;
       s.usage.count++; tg.save();  // counted before sending, so the budget is never exceeded
       status = 'Identifying…';
@@ -109,6 +112,8 @@ module.exports = tg => {
       form.append('file', new Blob([wav], { type: 'audio/wav' }), 'clip.wav');
       const r = await fetch('https://api.audd.io/', { method: 'POST', body: form, signal: AbortSignal.timeout(30000) });
       const d = await r.json();
+      lastClip.outcome = d.status !== 'success' ? 'AudD error: ' + (d.error?.error_message || r.status)
+        : d.result ? `matched: ${d.result.title} — ${d.result.artist}` : 'no match';
       if (cancelled()) return;
       if (d.status !== 'success') return turnOff('AudD: ' + (d.error?.error_message || `error ${r.status}`));
       if (!d.result) {
@@ -124,6 +129,7 @@ module.exports = tg => {
       if (manual && s.autoShow && !tg.isLive()) tg.setLive(true, showOn);
     } catch (e) {
       if (cancelled()) return;
+      if (lastClip && lastClip.outcome === 'sending…') lastClip.outcome = 'failed: ' + e.message;
       tg.log('Identify failed:', e.message);
       if (!active) { phase = 'off'; status = 'Problem: ' + e.message; return; }
       phase = 'waiting'; retryAt = Date.now() + RETRY_MS; status = 'Problem: ' + e.message + ' — trying again in 30 s.';
@@ -222,6 +228,7 @@ module.exports = tg => {
     used: used(), cap: s.cap, autoOffMin: s.autoOffMin, autoShow: s.autoShow,
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link },
     history: s.history.slice(0, 8),
+    lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome },
     logged: tg.listening.available ? tg.listening.stats().plays : null,   // plays in the listening log, from every source
   });
 
@@ -240,6 +247,14 @@ module.exports = tg => {
         if (typeof b.autoShow === 'boolean') s.autoShow = b.autoShow;
         tg.save();
         return state();
+      },
+      // The last clip sent to AudD, as a WAV file (only from the controller's computer or a trusted one).
+      'GET /clip': ctx => {
+        if (!ctx.local) throw Object.assign(new Error('Only from the computer running the controller, or one it trusts.'), { status: 403 });
+        if (!lastClip) throw Object.assign(new Error('No clip yet — identify something first.'), { status: 404 });
+        const name = 'vinyl-clip-' + new Date(lastClip.at).toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.wav';
+        ctx.res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Disposition': `inline; filename="${name}"`, 'Cache-Control': 'no-store' });
+        ctx.res.end(lastClip.wav);
       },
       'GET /wave': ({ req, res }) => {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
