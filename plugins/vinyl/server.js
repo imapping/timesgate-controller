@@ -25,7 +25,7 @@ module.exports = tg => {
   let active = false, until = 0, phase = 'off', status = 'Off', stopMic = null, offTimer = null;
   let track = null, misses = 0, retryAt = 0;
   let showOn;                    // the Times Gate it was started from (shown there if autoShow)
-  let loudSince = 0, quietSince = 0, avgDb = null;
+  let loudSince = 0, quietSince = 0, avgDb = null, power = 0;  // power: smoothed loudness (linear)
   const artCache = new Map();
 
   const used = () => { if (s.usage.month !== monthKey()) { s.usage = { month: monthKey(), count: 0 }; tg.save(); } return s.usage.count; };
@@ -34,7 +34,7 @@ module.exports = tg => {
     showOn = unit;
     if (!s.token) throw Object.assign(new Error('Add your AudD API token first.'), { status: 400 });
     if (used() >= s.cap) throw Object.assign(new Error(`This month's limit of ${s.cap} requests is used up.`), { status: 400 });
-    active = true; phase = 'waiting'; misses = 0; retryAt = 0; loudSince = quietSince = 0;
+    active = true; phase = 'waiting'; misses = 0; retryAt = 0; loudSince = quietSince = 0; power = 0;
     until = Date.now() + s.autoOffMin * 60000;
     tg.clear(offTimer);
     offTimer = tg.after(s.autoOffMin * 60000, () => turnOff(`Switched off after ${s.autoOffMin} minutes.`));
@@ -53,9 +53,13 @@ module.exports = tg => {
   function onFrame(f) {
     if (!active) return;
     const now = Date.now();
+    // "Music" goes by the loudness averaged over about a second, so the brief dips between beats
+    // don't restart the count (quieter mics hover near LOUD_DB). Gaps still go by each moment.
+    power = power * (1 - 1 / 43) + 10 ** (f.db / 10) / 43;
+    const smoothDb = 10 * Math.log10(power || 1e-10);
     const quiet = f.db < Math.min(LOUD_DB, (avgDb ?? -30) - 12);
-    const loud = f.db > LOUD_DB && !quiet;
-    if (loud) { loudSince ||= now; avgDb = avgDb == null ? f.db : avgDb * 0.995 + f.db * 0.005; }
+    const loud = smoothDb > LOUD_DB;
+    if (loud) { loudSince ||= now; avgDb = avgDb == null ? smoothDb : avgDb * 0.995 + smoothDb * 0.005; }
     else loudSince = 0;
     if (quiet) quietSince ||= now; else quietSince = 0;
     const music = loudSince && now - loudSince > MUSIC_MS;
