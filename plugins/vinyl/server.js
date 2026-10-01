@@ -22,6 +22,7 @@ const GAP_MS = 1200;             // quiet this long = gap between tracks
 const MIN_TRACK_MS = 45000;      // ignore "gaps" this soon after a match (quiet passages)
 const RETRY_MS = 30000;
 const LOUD_DB = -45;
+const POP_FRAMES = 4;          // sound this short (frames of 23 ms) in a gap is a click, not music
 
 // Cleans up a clip before it's sent (on by default): cuts everything below 120 Hz (boom from big
 // speakers, turntable rumble, mains hum), lifts 2-4 kHz a little, and raises the level so peaks reach
@@ -107,6 +108,9 @@ module.exports = tg => {
   // The last clip sent to AudD and its answer, for checking what it hears (memory only, replaced each time).
   let lastClip = null;   // { wav, at, outcome }
   let showOn;                    // the Times Gate it was started from (shown there if autoShow)
+  let blip = 0, recentAt = 0;
+  const recent = new Float32Array(129).fill(-99);   // each frame's level, the last 3 s
+  const medianDb = () => Float32Array.from(recent).sort()[recent.length >> 1];
   let loudSince = 0, quietSince = 0, soundSince = 0, avgDb = null, power = 0;  // power: smoothed loudness (linear)
   const artCache = new Map();
 
@@ -229,7 +233,10 @@ module.exports = tg => {
     const loud = smoothDb > LOUD_DB;
     if (loud) { loudSince ||= now; avgDb = avgDb == null ? smoothDb : avgDb * 0.995 + smoothDb * 0.005; }
     else loudSince = 0;
-    if (quiet) { quietSince ||= now; soundSince = 0; } else { quietSince = 0; soundSince ||= now; }
+    // A click or pop in a gap (a few frames, about 0.1 s) doesn't end the quiet.
+    if (quiet) { quietSince ||= now; soundSince = 0; blip = 0; } else { if (++blip > POP_FRAMES) quietSince = 0; soundSince ||= now; }
+    // The level of the last 3 s, by its median: clicks on a run-out groove don't count as music.
+    recent[recentAt++ % recent.length] = f.db;
     const music = loudSince && now - loudSince > MUSIC_MS;
     const gap = quietSince && now - quietSince > GAP_MS;
     segAdd(f, quiet, gap, now);
@@ -244,7 +251,7 @@ module.exports = tg => {
     }
     if (phase === 'playing' && now > track.checkAt && music) return void identify(false, true);
     // (Steady sound for a second, so a track isn't named in the gap before it or by a click.)
-    if (phase === 'waiting' && music && soundSince && now - soundSince > 1000 && now >= retryAt) identify();
+    if (phase === 'waiting' && music && soundSince && now - soundSince > 1000 && now >= retryAt && medianDb() > LOUD_DB) identify();
   }
 
   // ---- learning: the sound of each track is kept (in memory, at 11 kHz) from its start until the
@@ -437,7 +444,7 @@ module.exports = tg => {
       spotify: res.spotify, service: res.service, own: !!res.own, picked: !!res.picked, isrc: res.isrc, label: res.label, identifiedAt: now,
       expectMs: res.picked && res.durationMs ? res.durationMs / speedRatio() : null };   // how long a chosen track should last on this deck
     const same = !!track && sameSong(track, t);
-    if (same && !res.fix) { t.title = track.title; t.artist = track.artist; }   // (keep the name it already has)
+    if (same && !res.fix) { t.title = track.title; t.artist = track.artist; t.identifiedAt = track.identifiedAt; }   // (keep its name, and when it started)
     // The record in the Discogs collection with this song: its album, year and cover replace the
     // service's (which often names a compilation), and it says where the song is on the record.
     const own = res.rec || (same ? null : discogs.match(t.title, t.artist, now));
