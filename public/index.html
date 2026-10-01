@@ -73,6 +73,20 @@
   .scr.sel { border-color: var(--accent); color: #fff; }
   .gate.nonums .scr span { display: none; }
   .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  /* Gauges (This computer): an arc whose fill and faint track share one colour, which carries the
+     state (good / warning / serious / critical). The numbers stay in the text colours. */
+  .gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px 8px; }
+  .gauge { text-align: center; min-width: 0; --g: #0ca30c; }
+  .gauge[data-state=warning] { --g: #fab219; }
+  .gauge[data-state=serious] { --g: #ec835a; }
+  .gauge[data-state=critical] { --g: #d03b3b; }
+  .gauge svg { display: block; width: 100%; max-width: 150px; margin: 0 auto; }
+  .gauge .g-track { fill: none; stroke: var(--g); stroke-opacity: .2; stroke-width: 9; stroke-linecap: round; }
+  .gauge .g-fill { fill: none; stroke: var(--g); stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray .6s ease, stroke .3s; }
+  .gauge .g-value { font-size: 21px; font-weight: 600; fill: var(--ink); }
+  .gauge .g-unit { font-size: 11px; fill: var(--muted); }
+  .gauge b { display: block; font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .gauge small { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; }
 
   .list { max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
   .list button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
@@ -364,7 +378,8 @@
     </div>
     <p class="hint">To add another Times Gate, press <b>Find on network</b> and pick it. The list at the top then switches which one this page controls; each keeps its own screens, timer, score and lights.</p>
     <h2 style="margin-top:16px">This computer</h2>
-    <p id="sysInfo" class="hint" style="margin-top:0" title="The computer running the controller (updated every 5 seconds)">…</p>
+    <div id="sysGauges" class="gauges" title="The computer running the controller (updated every 5 seconds)"></div>
+    <p id="sysInfo" class="hint" style="margin-top:6px">…</p>
   </section>
 
   <section class="wide" id="buttons">
@@ -1026,17 +1041,55 @@ $('micHq').onchange = () => {
 
 // ---------- this computer ----------
 // How hard the computer running the controller is working (a Raspberry Pi also gives its temperature).
+// Each reading is a gauge: a half-circle from `min` to `max`, coloured by state, with the state named
+// in words underneath so it never depends on colour alone.
+const GAUGE_ARC = Math.PI * 50;   // length of the half-circle path below
+function gauge(id, label) {
+  let el = document.getElementById('gauge-' + id);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'gauge'; el.id = 'gauge-' + id;
+    el.innerHTML = `<svg viewBox="0 0 120 68" role="img"><path class="g-track" d="M10 60 A50 50 0 0 1 110 60"/>
+      <path class="g-fill" d="M10 60 A50 50 0 0 1 110 60" stroke-dasharray="0 ${GAUGE_ARC}"/>
+      <text class="g-value" x="60" y="56" text-anchor="middle"></text><text class="g-unit" x="60" y="67" text-anchor="middle"></text></svg><b></b><small></small>`;
+    el.querySelector('b').textContent = label;
+    $('sysGauges').append(el);
+  }
+  return el;
+}
+// levels: [warning, serious, critical] thresholds; words: what to call good / warning / serious / critical.
+function setGauge(id, label, value, { min = 0, max = 100, unit = '%', levels, words, detail }) {
+  const el = gauge(id, label), i = levels.filter(l => value >= l).length;
+  const frac = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  el.dataset.state = ['good', 'warning', 'serious', 'critical'][i];
+  el.querySelector('.g-fill').setAttribute('stroke-dasharray', `${(frac * GAUGE_ARC).toFixed(1)} ${GAUGE_ARC}`);
+  el.querySelector('.g-value').textContent = Math.round(value);
+  el.querySelector('.g-unit').textContent = unit;
+  el.querySelector('small').textContent = `${words[i]} · ${detail}`;
+  el.querySelector('svg').setAttribute('aria-label', `${label}: ${Math.round(value)} ${unit}, ${words[i]}`);
+  el.title = `${label}: ${value} ${unit} (${words[i]}) · ${detail}`;
+}
 async function showSystem() {
   try {
     const d = await (await fetch('/api/system')).json();
     const dur = t => t >= 172800 ? Math.round(t / 86400) + ' days' : t >= 7200 ? Math.round(t / 3600) + ' hours' : Math.max(1, Math.round(t / 60)) + ' min';
+    const busy = ['light', 'busy', 'very busy', 'flat out'];
+    // Always in this order; a gauge with no reading yet (or no sensor) is hidden.
+    for (const [id, label, has] of [['cpu', 'CPU', d.cpu != null], ['proc', 'Controller', d.cpu != null], ['temp', 'Temperature', d.temp != null], ['mem', 'Memory', true]])
+      gauge(id, label).hidden = !has;
+    if (d.cpu != null) {
+      setGauge('cpu', 'CPU', d.cpu, { levels: [60, 80, 95], words: busy, detail: `all ${d.cores} cores` });
+      setGauge('proc', 'Controller', d.controllerCpu, { levels: [60, 80, 95], words: busy, detail: 'of one core' });
+    }
+    if (d.temp != null)   // a Raspberry Pi starts slowing itself down at 80 °C
+      setGauge('temp', 'Temperature', d.temp, { min: 20, max: 90, unit: '°C', levels: [65, 75, 80], words: ['cool', 'warm', 'hot', 'too hot, slowing down'], detail: 'limit 80 °C' });
+    setGauge('mem', 'Memory', 100 * d.memUsedMB / d.memTotalMB, { levels: [75, 88, 95], words: ['plenty free', 'filling up', 'nearly full', 'full'],
+      detail: `${d.memUsedMB.toLocaleString()} of ${d.memTotalMB.toLocaleString()} MB` });
     $('sysInfo').textContent = [
       d.host + (d.platform === 'linux' ? '' : ' (' + d.platform + ')'),
-      d.cpu == null ? null : `CPU ${d.cpu}% of ${d.cores} cores (the controller: ${d.controllerCpu}% of one)`,
-      d.temp == null ? null : `${d.temp} °C${d.temp >= 80 ? ' — hot, it may slow down' : ''}`,
-      `memory ${d.memUsedMB.toLocaleString()} of ${d.memTotalMB.toLocaleString()} MB (the controller: ${d.controllerMB} MB)`,
+      `the controller uses ${d.controllerMB} MB`,
       `up ${dur(d.uptimeS)}, the controller ${dur(d.runningS)}`,
-    ].filter(Boolean).join(' · ');
+    ].join(' · ');
   } catch {}
 }
 showSystem(); setInterval(showSystem, 5000);
