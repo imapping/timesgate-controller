@@ -92,20 +92,25 @@ const server = http.createServer(async (req, res) => {
 
     // The microphone: status and level, the device list, and choosing one.
     if (url.pathname === '/api/mic') {
-      if (req.method === 'GET') return sendJson(res, 200, mic.status());
+      if (req.method === 'GET') return sendJson(res, 200, { ...mic.status(), local: isLoopback(req) });
       const body = JSON.parse((await readBody(req)).toString() || '{}');
       if ('device' in body) mic.setDevice(body.device);
+      if (typeof body.shared === 'boolean') {   // let any device on the network listen live (a direct connection, not a room mic)
+        if (!isLoopback(req)) return sendJson(res, 403, { error: 'Change who can listen from the computer running the controller, or one it trusts.' });
+        mic.setShared(body.shared);
+      }
       if (body.test) {  // listen for a few seconds so the page can show the level
         const off = mic.listen(() => {}, 'test');
         setTimeout(off, Math.min(30, Number(body.test) || 10) * 1000);
       }
-      return sendJson(res, 200, mic.status());
+      return sendJson(res, 200, { ...mic.status(), local: isLoopback(req) });
     }
     if (req.method === 'GET' && url.pathname === '/api/mic/devices') return sendJson(res, 200, await mic.devices());
-    // Listen to the microphone live (a never-ending WAV). It's a live room mic, so only from this
-    // computer or a trusted one, never from phones or anything else on the network.
+    // Listen to the input live (a never-ending WAV). A room microphone is private: only this computer
+    // or a trusted one. An input marked as a direct connection (a turntable or line-in) is for everyone
+    // on the network.
     if (req.method === 'GET' && url.pathname === '/api/mic/stream') {
-      if (!isLoopback(req)) return sendJson(res, 403, { error: 'Live listening only works from the computer running the controller, or one it trusts.' });
+      if (!isLoopback(req) && !mic.isShared()) return sendJson(res, 403, { error: 'Live listening only works from the computer running the controller, or one it trusts (unless the input is marked as a direct connection in the Microphone card).' });
       return mic.stream(req, res);
     }
 

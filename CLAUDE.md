@@ -12,7 +12,8 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
     Leaving it out means the first unit.
   - State is in `engine.json`.
 - `plugin-host.js`: loads `plugins/*`, the `tg` toolkit, install/remove, and actions.
-- `mic.js`: the shared microphone. `GET /api/mic/stream` plays it live as an endless WAV (trusted computers only;
+- `mic.js`: the shared microphone. `GET /api/mic/stream` plays it live as an endless WAV (trusted computers only, unless the
+  input is marked as a direct connection, per device, in `data/mic.json`;
   the page plays it through Web Audio). It uses ffmpeg on Windows and arecord on a Pi, and runs only while something uses it.
 - `listening.js`: the listening log, every song heard (Vinyl) or played (Spotify), in SQLite at
   `data/listening.db` via better-sqlite3 (pinned to 12.11.1, the last to support the Pi's Node 20).

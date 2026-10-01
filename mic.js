@@ -12,7 +12,9 @@ const HOP = 512;              // samples per analysis frame (~23 ms)
 const CONF_FILE = path.join(__dirname, 'data', 'mic.json');
 const WIN = process.platform === 'win32';
 
-let conf = { device: null };
+// shared: the devices marked as a direct connection (a turntable or line-in, not a room microphone),
+// which any device on the network may listen to live.
+let conf = { device: null, shared: {} };
 try { conf = { ...conf, ...JSON.parse(fs.readFileSync(CONF_FILE, 'utf8')) }; } catch {}
 const saveConf = () => { fs.mkdirSync(path.dirname(CONF_FILE), { recursive: true }); fs.writeFileSync(CONF_FILE, JSON.stringify(conf, null, 2)); };
 const log = (...a) => console.log(new Date().toLocaleTimeString(), '[mic]', ...a);
@@ -230,7 +232,7 @@ function record(ms) {
 function status() {
   return { running: !!proc, error, device: device() || 'default', users: [...new Set([...listeners.values()].map(l => l.who))],
     recording: recorders.size > 0, level: last.level, db: last.db, bpm: last.bpm,
-    tool: findArecord() ? 'arecord' : findFfmpeg() ? 'ffmpeg' : null };
+    tool: findArecord() ? 'arecord' : findFfmpeg() ? 'ffmpeg' : null, shared: isShared() };
 }
 
 function setDevice(device) {
@@ -256,4 +258,13 @@ pickDevice();
 if (!WIN) setInterval(pickDevice, 30 * 1000).unref();
 const device = () => (conf.device && !foreignDevice ? conf.device : autoDevice);
 
-module.exports = { listen, record, stream, status, devices, setDevice, RATE, makeAnalyser, HOP };
+// Whether the input in use is marked as a direct connection that anyone on the network may listen to.
+const isShared = () => !!(device() && conf.shared && conf.shared[device()]);
+function setShared(on) {
+  if (!device()) throw Object.assign(new Error('Choose the input first'), { status: 400 });
+  conf.shared = { ...(conf.shared || {}) };
+  if (on) conf.shared[device()] = true; else delete conf.shared[device()];
+  saveConf();
+}
+
+module.exports = { listen, record, stream, status, devices, setDevice, isShared, setShared, RATE, makeAnalyser, HOP };

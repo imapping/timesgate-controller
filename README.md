@@ -10,7 +10,8 @@ working with the page closed.
   recognition.
   They can be installed or removed from the page.
 - A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD and/or ACRCloud).
-  You can also listen to it live from your PC.
+  You can also listen to it live from your PC, or, for a direct connection such as a turntable, from
+  any phone or computer on your network.
 - A **USB button box** (an arcade joystick kit) or game controller: map each button to any action
 - **Several Times Gates**, each with its own screens and settings
 

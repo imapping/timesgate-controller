@@ -250,8 +250,12 @@
     </div>
     <div class="row"><span id="micStatus" class="hint" style="margin:0"></span></div>
     <div class="row">
-      <button id="micLive" title="Hear what the microphone hears, on this computer (only from the computer running the controller, or one it trusts)">Listen live</button>
+      <button id="micLive" title="Hear what this input hears, in this browser">Listen live</button>
       <span id="micLiveInfo" class="hint" style="margin:0"></span>
+    </div>
+    <div class="row">
+      <label title="A room microphone can only be listened to from the controller's computer or one it trusts. Tick this for a turntable or line-in so phones and other computers can listen too. Remembered for this input only."><input type="checkbox" id="micShared">
+        This is a direct connection (a turntable or line-in), not a microphone: let any device on the network listen live</label>
     </div>
     <p class="hint">Plugins such as the music visualizer listen through this. It only runs while one of them needs it, and nothing is recorded to disk.</p>
   </section>
@@ -934,6 +938,14 @@ function showMic(s) {
     : s.running ? `${bar}  ${s.db} dB · used by ${s.users.join(', ') || 'a recording'}`
     : 'Off — nothing is using it.';
   if (s.device && $('micDevice').value !== s.device && [...$('micDevice').options].some(o => o.value === s.device)) $('micDevice').value = s.device;
+  // Who may listen live: trusted computers always; everyone if this input is marked as a direct connection.
+  if ('shared' in s) {
+    $('micShared').checked = s.shared;
+    $('micShared').disabled = !s.local;   // only a trusted computer can change it
+    $('micLive').disabled = !s.local && !s.shared && !micLive;
+    if ($('micLive').disabled) $('micLiveInfo').textContent = 'Live listening is only for the controller\u2019s computer, unless this input is marked as a direct connection there.';
+    else if (!micLive && /only for the controller/.test($('micLiveInfo').textContent)) $('micLiveInfo').textContent = '';
+  }
 }
 (async () => {
   try {
@@ -945,6 +957,12 @@ function showMic(s) {
 })();
 $('micDevice').onchange = async () => showMic(await micCall({ device: $('micDevice').value }));
 $('micTest').onclick = async () => showMic(await micCall({ test: 10 }));
+$('micShared').onchange = async e => {
+  const on = e.target.checked;
+  if (on && !confirm('Anyone on your network will be able to listen to this input live.\n\nOnly do this for a direct connection such as a turntable or line-in, not for a microphone in a room.')) { e.target.checked = false; return; }
+  const r = await micCall({ shared: on });
+  if (r.error) { log('Microphone: ' + r.error, 'e'); e.target.checked = !on; } else showMic(r);
+};
 // Listen live: the server streams the mic as a never-ending WAV (trusted computers only). The page
 // reads it as it arrives and plays it through Web Audio, about a quarter of a second behind.
 // (An <audio> element buffers endless WAVs unpredictably, so this does the playing itself.)
