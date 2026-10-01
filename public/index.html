@@ -5,16 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TimesGate Control</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script>
+  // Appearance: 'light' or 'dark' if chosen on the page (Settings → This page), otherwise follow the device.
+  try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
 <style>
+  /* Light by default; dark when the device asks for it (unless Light is chosen), or when Dark is chosen. */
   :root {
     --bg: #f4f4f1; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #deded8;
     --accent: #e0592a; --accent-ink: #fff; --screen: #121212; --ok: #2f8f4e; --err: #c0392b;
     --field: #fafaf7;
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --panel: #1f1f1d; --ink: #ecece6; --muted: #9a9a92; --line: #33332f;
-            --accent: #ff7a45; --accent-ink: #1a0d06; --screen: #000; --field: #181816; }
+    :root:not([data-theme=light]) { --bg: #151514; --panel: #1f1f1d; --ink: #ecece6; --muted: #9a9a92; --line: #33332f;
+            --accent: #ff7a45; --accent-ink: #1a0d06; --screen: #000; --field: #181816; color-scheme: dark; }
   }
+  :root[data-theme=dark] { --bg: #151514; --panel: #1f1f1d; --ink: #ecece6; --muted: #9a9a92; --line: #33332f;
+            --accent: #ff7a45; --accent-ink: #1a0d06; --screen: #000; --field: #181816; color-scheme: dark; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -98,6 +106,7 @@
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--line); }
   .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chips button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   button:disabled { opacity: .5; cursor: default; }
@@ -377,6 +386,13 @@
       <button id="unitRemove" class="danger" hidden>Remove</button>
     </div>
     <p class="hint">To add another Times Gate, press <b>Find on network</b> and pick it. The list at the top then switches which one this page controls; each keeps its own screens, timer, score and lights.</p>
+    <h2 style="margin-top:16px">This page</h2>
+    <div class="row">
+      <label>Appearance</label>
+      <div class="seg" id="themeSeg" title="Auto follows this device's light or dark setting. Remembered in this browser.">
+        <button data-theme-choice="auto">Auto</button><button data-theme-choice="light">Light</button><button data-theme-choice="dark">Dark</button>
+      </div>
+    </div>
     <h2 style="margin-top:16px">This computer</h2>
     <div id="sysGauges" class="gauges" title="The computer running the controller (updated every 5 seconds)"></div>
     <p id="sysInfo" class="hint" style="margin-top:6px">…</p>
@@ -1038,6 +1054,16 @@ $('micHq').onchange = () => {
   try { localStorage.setItem('micHq', $('micHq').checked ? '1' : '0'); } catch {}
   if (micLive) { micLiveStop(); $('micLive').click(); }
 };
+
+// ---------- appearance ----------
+// Auto follows the device; Light and Dark are remembered in this browser (and used by the plugin guide too).
+function setTheme(choice) {
+  try { choice === 'auto' ? localStorage.removeItem('theme') : localStorage.setItem('theme', choice); } catch {}
+  if (choice === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = choice;
+  document.querySelectorAll('[data-theme-choice]').forEach(b => b.classList.toggle('on', b.dataset.themeChoice === choice));
+}
+document.querySelectorAll('[data-theme-choice]').forEach(b => b.onclick = () => setTheme(b.dataset.themeChoice));
+setTheme(document.documentElement.dataset.theme || 'auto');
 
 // ---------- this computer ----------
 // How hard the computer running the controller is working (a Raspberry Pi also gives its temperature).

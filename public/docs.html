@@ -5,15 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TimesGate Docs</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script>
+  // Appearance: 'light' or 'dark' if chosen on the page (Settings → This page), otherwise follow the device.
+  try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
 <style>
   :root {
     --bg: #f4f4f1; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #deded8;
     --accent: #e0592a; --field: #fafaf7; --code: #f1f0ea;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --panel: #1f1f1d; --ink: #ecece6; --muted: #9a9a92; --line: #33332f;
-            --accent: #ff7a45; --field: #181816; --code: #161614; }
+    :root:not([data-theme=light]) { --bg: #151514; --panel: #1f1f1d; --ink: #ecece6; --muted: #9a9a92; --line: #33332f;
+            --accent: #ff7a45; --field: #181816; --code: #161614; color-scheme: dark; }
   }
+  :root[data-theme=dark] { --bg: #151514; --panel: #1f1f1d; --ink: #ecece6; --muted: #9a9a92; --line: #33332f;
+            --accent: #ff7a45; --field: #181816; --code: #161614; color-scheme: dark; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { display: flex; gap: 16px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--line);
