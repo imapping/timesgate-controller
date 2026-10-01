@@ -220,11 +220,17 @@ function wav(pcm) { return Buffer.concat([wavHeader(pcm.length), pcm]); }
 // Streams the live sound to an HTTP response as a never-ending WAV, until the listener disconnects:
 // mono at 22.05 kHz, or with hq the capture itself (44.1 kHz stereo, about 176 KB a second).
 // If they fall behind (a slow connection), sound is dropped rather than queued.
-function stream(req, res, hq = false) {
+// With keep (a recording, hq only) nothing is ever dropped: up to KEEP_MAX is queued for a listener
+// that falls behind, and past that the connection is closed, so a recording is whole or visibly cut short.
+const KEEP_MAX = 64 * 1024 * 1024;   // about 6 minutes of sound
+function stream(req, res, hq = false, keep = false) {
   res.writeHead(200, { 'Content-Type': 'audio/wav', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
   if (hq) {
     res.write(wavHeader(undefined, CAP_RATE, CAP_CH));
-    const fn = buf => { if (res.writableLength < 1024 * 1024) res.write(buf); };
+    const fn = keep
+      ? buf => { if (res.writableLength < KEEP_MAX) res.write(buf); else res.destroy(); }
+      : buf => { if (res.writableLength < 1024 * 1024) res.write(buf); };
+    fn.who = keep ? 'recording' : 'live listening';
     hqListeners.add(fn);
     start();
     req.on('close', () => { hqListeners.delete(fn); if (!inUse()) stop(); });
@@ -263,7 +269,7 @@ function record(ms) {
 
 function status() {
   return { running: !!proc, error, device: device() || 'default',
-    users: [...new Set([...[...listeners.values()].map(l => l.who), ...(hqListeners.size ? ['live listening'] : [])])],
+    users: [...new Set([...[...listeners.values()].map(l => l.who), ...[...hqListeners].map(fn => fn.who)])],
     recording: recorders.size > 0, level: last.level, db: last.db, bpm: last.bpm,
     tool: findArecord() ? 'arecord' : findFfmpeg() ? 'ffmpeg' : null, shared: isShared() };
 }

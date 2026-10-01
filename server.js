@@ -150,7 +150,7 @@ const server = http.createServer(async (req, res) => {
     // on the network.
     if (req.method === 'GET' && url.pathname === '/api/mic/stream') {
       if (!isLoopback(req) && !mic.isShared()) return sendJson(res, 403, { error: 'Live listening only works from the computer running the controller, or one it trusts (unless the input is marked as a direct connection in the Microphone card).' });
-      return mic.stream(req, res, url.searchParams.has('hq'));   // ?hq: 44.1 kHz stereo
+      return mic.stream(req, res, url.searchParams.has('hq'), url.searchParams.has('keep'));   // ?hq: 44.1 kHz stereo; &keep: never drop sound (for recording)
     }
 
     // Button boxes / game controllers (buttons.js): status and which action each input runs.

@@ -13,7 +13,7 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
   - State is in `engine.json`.
 - `plugin-host.js`: loads `plugins/*`, the `tg` toolkit, install/remove, and actions.
 - `mic.js`: the shared microphone or direct input. It captures 44.1 kHz stereo and derives mono 22.05 kHz for
-  plugins (analysis, clips). `GET /api/mic/stream` plays it live as an endless WAV (`?hq` for the stereo capture; trusted computers only, unless the
+  plugins (analysis, clips). `GET /api/mic/stream` plays it live as an endless WAV (`?hq` for the stereo capture, `?hq&keep` for a recording that never drops sound; trusted computers only, unless the
   input is marked as a direct connection, per device, in `data/mic.json`;
   the page plays it through Web Audio). It uses ffmpeg on Windows and arecord on a Pi, and runs only while something uses it.
 - `listening.js`: the listening log, every song heard (Vinyl) or played (Spotify), in SQLite at
