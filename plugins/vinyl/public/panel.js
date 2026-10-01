@@ -2,7 +2,7 @@
 (() => {
   const p = TG.plugin('vinyl');
   const $p = sel => p.el(sel);
-  let st = null, changingKeys = false;   // changingKeys: showing the key fields to replace saved keys
+  let st = null, changingKeys = false, changingDc = false;   // changingKeys: showing the key fields to replace saved keys
   const art = new Map();
 
   async function loadArt(url) {
@@ -61,6 +61,15 @@
     $p('#vnClean').checked = s.cleanClip;
     $p('#vnClipSec').value = String(s.clipSec || 12);
     if (document.activeElement !== $p('#vnRpm')) $p('#vnRpm').value = s.rpm;
+    // The Discogs collection: how much of it is loaded (the token stays in the server).
+    const d = s.discogs;
+    $p('#vnDcSetup').hidden = d.set && !changingDc;
+    $p('#vnDcInfo').textContent = !d.set ? 'Discogs (not set up)'
+      : d.error ? `Discogs: ${d.user} · ${d.error}`
+      : !d.records && d.syncing ? `Discogs: ${d.user} · reading the collection…`
+      : `Discogs: ${d.user} · ${d.records.toLocaleString()} records` + (d.loaded < d.records ? ` · track lists ${d.loaded} of ${d.records}${d.syncing ? ' (loading…)' : ''}` : ' ✓');
+    for (const id of ['#vnDcRefresh', '#vnDcChange', '#vnDcRemove']) $p(id).style.display = d.set ? '' : 'none';
+    if (document.activeElement !== $p('#vnDcUser') && !$p('#vnDcUser').value) $p('#vnDcUser').value = d.user;
     const h = $p('#vnHistory');
     h.innerHTML = s.history.length ? '<table class="wx"></table>' : '';
     for (const t of s.history) {
@@ -73,7 +82,13 @@
       link.target = '_blank'; link.rel = 'noopener'; link.title = 'Open in Spotify'; link.style.color = 'inherit';
       link.textContent = t.title;
       tr.children[0].append(link);
-      tr.children[1].textContent = t.artist + (t.album ? ' — ' + t.album : '');
+      tr.children[1].textContent = t.artist + (t.album ? ' — ' : '');
+      if (t.album && (t.discogs || '').startsWith('https://www.discogs.com/release/')) {   // the record in your collection
+        const rec = document.createElement('a');
+        rec.href = t.discogs; rec.target = '_blank'; rec.rel = 'noopener'; rec.title = 'Your record on Discogs'; rec.style.color = 'inherit';
+        rec.textContent = t.album;
+        tr.children[1].append(rec, t.pos ? ` (${t.pos})` : '');
+      } else if (t.album) tr.children[1].append(t.album);
       tr.children[2].textContent = new Date(t.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
       h.firstChild.append(tr);
     }
@@ -164,6 +179,13 @@
     await call('options', { acr: { host: $p('#vnAcrHost').value, key: $p('#vnAcrKey').value, secret: $p('#vnAcrSecret').value } });
     $p('#vnAcrKey').value = $p('#vnAcrSecret').value = ''; changingKeys = false; if (st) apply(st);
   };
+  $p('#vnDcSave').onclick = async () => {
+    await call('options', { discogs: { user: $p('#vnDcUser').value, token: $p('#vnDcToken').value } });
+    $p('#vnDcToken').value = ''; changingDc = false; if (st) apply(st);
+  };
+  $p('#vnDcChange').onclick = () => { changingDc = !changingDc; if (st) apply(st); };
+  $p('#vnDcRefresh').onclick = () => call('discogs', {});
+  $p('#vnDcRemove').onclick = () => { if (confirm('Remove your Discogs details and the saved copy of your collection from the controller?')) { $p('#vnDcUser').value = ''; call('options', { discogs: {} }); } };
   $p('#vnAcrCap').onchange = e => call('options', { acrCap: Number(e.target.value) });
   $p('#vnAutoOff').onchange = e => call('options', { autoOffMin: Number(e.target.value) });
   $p('#vnCap').onchange = e => call('options', { cap: Number(e.target.value) });

@@ -5,7 +5,7 @@ and shows it:
 - **Screen 1:** the album art.
 - **Screens 2–3:** the title.
 - **Screen 4:** the artist.
-- **Screen 5:** a spinning record, with the album and year.
+- **Screen 5:** a spinning record, with the album and year (and the side and track, with Discogs).
 
 Matches missing a Spotify link or cover are looked up on Spotify (through the Spotify plugin, if it's
 connected), then in Apple's iTunes Search for the cover. Titles that arrive all in lowercase get
@@ -24,6 +24,27 @@ one it trusts). The keys stay on the controller and are never sent to the page.
   the card's "Last clip sent" line but not used.
 - **AudD, then ACRCloud if no match:** asks AudD first, and only asks ACRCloud when AudD finds
   nothing. Each service has its own monthly limit in the card.
+
+## Your Discogs collection
+
+If your records are listed on [Discogs](https://www.discogs.com), each identified song is matched to
+the record you own. Recognition services often name a compilation or a reissue; with Discogs you get
+your record's album, year and cover, and where the song is on it ("Side B · track 3"). The album in
+the card's history links to the record on Discogs, and the listening log gets the corrected album.
+
+In the card's settings, under **Your collection**, enter your Discogs username and a personal access
+token (Discogs → Settings → Developers → **Generate new token**), from the computer running the
+controller or one it trusts. The token stays on the controller and is only sent to api.discogs.com.
+
+- The list of records and each record's track list are saved in `data/vinyl-discogs.json`. Track
+  lists load one a second (Discogs allows 60 requests a minute), so a big collection takes a few
+  minutes the first time. Songs are matched as soon as their record's track list is loaded.
+- The collection is checked for new records once a day, or with **Refresh**.
+- When a song is on several of your records, it picks the one the last song came from (you're
+  probably still playing it), then an album over a compilation.
+- A song that isn't in your collection keeps the recognition service's album and cover.
+- The year is the year of your pressing, as Discogs lists it.
+- **Remove** deletes the username, the token and the saved copy.
 
 ## Turntable speed
 

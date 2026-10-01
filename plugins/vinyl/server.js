@@ -7,8 +7,11 @@
 //  - misses wait 30 s; after 3 in a row it waits for the next track
 //  - a monthly counter with a hard stop at the cap (resets on the 1st)
 //  - skips identifying while the Spotify plugin says Spotify is playing (that's not the record)
+// With a Discogs collection set up (discogs.js), each match gets the album, year, cover and side/track
+// of the record the user owns.
 const crypto = require('crypto');
 const { renderVinyl, vnArtColours } = require('./public/render.js');
+const discogsFor = require('./discogs.js');
 
 const CLIP_SECS = [10, 12];      // choices for the sound sent per request (AudD's standard API uses about 12 s at most)
 const MUSIC_MS = 3000;           // music this long before trying
@@ -77,6 +80,7 @@ module.exports = tg => {
   s.usage ??= { month: monthKey(), count: 0 }; s.history ??= [];
   s.provider ??= 'audd'; s.acr ??= { host: '', key: '', secret: '' }; s.acrCap ??= 300;
   s.acrUsage ??= { month: monthKey(), count: 0 };
+  const discogs = discogsFor(tg, s);   // the user's record collection (see discogs.js)
   // Start the listening log with the songs identified before it existed (once).
   if (!s.historyLogged && tg.listening.available) {
     for (const h of [...s.history].reverse()) {
@@ -314,6 +318,13 @@ module.exports = tg => {
     const t = { title: tidy(res.title), artist: tidy(res.artist), album: tidy(res.album), year: res.year, art: res.art, link: res.link,
       spotify: res.spotify, service: res.service, identifiedAt: now };
     const same = track && track.title === t.title && track.artist === t.artist;
+    // The record in the Discogs collection with this song: its album, year and cover replace the
+    // service's (which often names a compilation), and it says where the song is on the record.
+    const own = same ? null : discogs.match(t.title, t.artist, now);
+    if (own) {
+      t.album = own.album; t.year = own.year || t.year; t.pos = own.pos; t.where = own.where; t.discogs = own.link;
+      if (own.cover) { t.artAlt = t.art; t.art = own.cover; }
+    }
     // Check again around the track's end if no gap is heard (e.g. tracks that run into each other).
     const checkAt = duration => now + Math.max(same ? 2 * 60000 : 60000,
       (duration && pos != null && duration < 20 * 60000 ? (duration - pos) / speedRatio() - s.clipSec * 1000 : 4 * 60000) + 15000);   // a fast deck ends songs sooner
@@ -321,11 +332,12 @@ module.exports = tg => {
     track = t; phase = 'playing';
     status = `${t.title} — ${t.artist}`;
     if (same) return;
-    tg.log(`Identified by ${t.service}: ${t.title} — ${t.artist} (AudD ${used()}/${s.cap}, ACRCloud ${acrUsed()}/${s.acrCap} this month)`);
+    tg.log(`Identified by ${t.service}: ${t.title} — ${t.artist}${own ? ` [${own.album}, ${own.pos || 'no position'}]` : ''} (AudD ${used()}/${s.cap}, ACRCloud ${acrUsed()}/${s.acrCap} this month)`);
     tg.update();
+    if (t.artAlt !== undefined && !(await artFor(t.art))) { t.art = t.artAlt; delete t.artAlt; }   // the Discogs cover didn't load
     const extra = !t.art || !t.spotify ? await fillIn(t) : {};
     if (!res.durationMs && extra.duration) t.checkAt = checkAt(extra.duration);
-    s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, at: now }, ...s.history].slice(0, 20);
+    s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, pos: t.pos, discogs: t.discogs, at: now }, ...s.history].slice(0, 20);
     // The all-time listening log (data/listening.db).
     try {
       tg.listening.add({ at: now, title: t.title, artist: t.artist, album: t.album, year: t.year, duration_ms: res.durationMs || extra.duration,
@@ -414,7 +426,9 @@ module.exports = tg => {
     hasToken: chosen().length > 0,   // the chosen service(s) can be used
     used: used(), cap: s.cap, acrUsed: acrUsed(), acrCap: s.acrCap,
     autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec, rpm: s.rpm,
-    track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link },
+    track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link,
+      where: track.where, discogs: track.discogs },
+    discogs: discogs.state(),
     history: s.history.slice(0, 8),
     lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome, cleaned: lastClip.cleaned, speedFixed: lastClip.speedFixed },
     logged: tg.listening.available ? tg.listening.stats().plays : null,   // plays in the listening log, from every source
@@ -437,6 +451,7 @@ module.exports = tg => {
           s.acr = { host, key: String(b.acr.key || '').trim(), secret: String(b.acr.secret || '').trim() };
           delete failed.acr;
         }
+        if (b.discogs && typeof b.discogs === 'object') { localOnly(ctx); discogs.configure(b.discogs); }   // { user, token }, or {} to remove
         if (PROVIDERS.includes(b.provider)) { s.provider = b.provider; failed = {}; }
         if (Number.isFinite(b.acrCap) && b.acrCap >= 0) s.acrCap = Math.round(b.acrCap);
         if (Number.isFinite(b.cap) && b.cap >= 0) s.cap = Math.round(b.cap);
@@ -448,6 +463,8 @@ module.exports = tg => {
         tg.save();
         return state();
       },
+      // Read the Discogs collection again now (it's also checked once a day).
+      'POST /discogs': () => { discogs.refresh(); return state(); },
       // The last clip sent to AudD, as a WAV file (only from the controller's computer or a trusted one).
       'GET /clip': ctx => {
         if (!ctx.local) throw Object.assign(new Error('Only from the computer running the controller, or one it trusts.'), { status: 403 });
@@ -475,6 +492,6 @@ module.exports = tg => {
       listen: { label: 'identify records on/off', run: ({ on, unit } = {}) => ((on ?? !active) ? turnOn(unit === 'all' ? undefined : unit) : turnOff()) },
       now: { label: 'identify what\'s playing now', run: ({ unit } = {}) => identifyNow(unit === 'all' ? undefined : unit) },
     },
-    stop: () => { active = false; stopMic = null; stopWave = null; for (const res of waveClients) res.end(); waveClients.clear(); },
+    stop: () => { discogs.stop(); active = false; stopMic = null; stopWave = null; for (const res of waveClients) res.end(); waveClients.clear(); },
   };
 };

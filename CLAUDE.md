@@ -19,6 +19,8 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
 - `listening.js`: the listening log, every song heard (Vinyl) or played (Spotify), in SQLite at
   `data/listening.db` via better-sqlite3 (pinned to 12.11.1, the last to support the Pi's Node 20).
   Plugins use `tg.listening.add/query`.
+- `plugins/vinyl/discogs.js`: the user's Discogs record collection, saved in `data/vinyl-discogs.json`. Vinyl uses it to
+  give each identified song the album, year, cover and side/track of the record they own.
 - `buttons.js`: reads the USB button box through node-hid, and runs the action assigned to each button.
   With several Times Gates, the box has a selected one (`buttons.switch` moves to the next, with a
   beep and edge flash); buttons without a fixed unit act on it.

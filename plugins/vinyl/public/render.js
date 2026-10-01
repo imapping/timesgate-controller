@@ -66,7 +66,7 @@ function vnRecord(g, cx, cy, r, angle, accent, art) {
   g.restore();
 }
 
-// t: { title, artist, album, year } or null; art: vnArtColours(image) or null; status: text when nothing's identified.
+// t: { title, artist, album, year, where } or null; art: vnArtColours(image) or null; status: text when nothing's identified.
 // Returns [{ key, jobs }] for screen 1, screens 2–3, screen 4 and screen 5.
 function renderVinyl(t, art, status) {
   if (!t) art = null;
@@ -103,11 +103,12 @@ function renderVinyl(t, art, status) {
       if (t) {
         g.textAlign = 'center';
         const sub = [t.album, t.year].filter(Boolean).join(' · ');
-        if (sub) vnText(g, sub, 64, 90, 116, 36, 2, 14, 9, '#d0d0d8', 600);
+        if (sub) vnText(g, sub, 64, 90, 116, t.where ? 24 : 36, 2, 14, 9, '#d0d0d8', 600);
+        if (t.where) vnText(g, t.where, 64, 114, 116, 12, 1, 11, 8, accent, 700);   // where it is on the record (from Discogs)
       }
       frames.push(c);
     }
-    parts.push({ key: 'record:' + id + bg, jobs: [{ screen: 4, frames }] });
+    parts.push({ key: 'record:' + id + bg + (t ? [t.album, t.year, t.where].join('|') : ''), jobs: [{ screen: 4, frames }] });
   }
   return { speed: VN_SPEED, parts };
 }

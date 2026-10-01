@@ -96,6 +96,24 @@
       sounds fine but isn't matched. Either check yours runs at 33.3 RPM (a turntable speed app, with the phone on the platter) and adjust the
       turntable, or enter the speed it measures here and clips are corrected before they're sent. Leave it at 33.33 for radio, streaming or an
       accurate turntable.</p>
+    <label for="vnDcUser">Your collection</label>
+    <div class="vn-v">
+      <span id="vnDcInfo" class="vn-unit"></span>
+      <button id="vnDcRefresh" style="display:none" title="Read your Discogs collection again now (it's also checked once a day)">Refresh</button>
+      <button id="vnDcChange" style="display:none" title="Change the username or token (from the controller's computer or a trusted one)">Change</button>
+      <button id="vnDcRemove" style="display:none">Remove</button>
+    </div>
+    <div id="vnDcSetup" class="vn-wide" hidden>
+      <p class="hint" style="margin-top:0">If your records are listed on <a href="https://www.discogs.com" target="_blank" rel="noopener">Discogs</a>, each song is matched to
+        the record you own: its album, year and cover, and which side and track it is. Enter your Discogs username and a personal access
+        token (Discogs → Settings → Developers → <b>Generate new token</b>), from your computer (the one running the controller, or one it
+        trusts; not a phone):</p>
+      <div class="row">
+        <input type="text" id="vnDcUser" placeholder="Discogs username" style="width:200px" autocomplete="off" spellcheck="false">
+        <input type="password" id="vnDcToken" placeholder="Personal access token" style="width:300px" autocomplete="off" spellcheck="false">
+        <button id="vnDcSave">Save</button>
+      </div>
+    </div>
     <label for="vnClipSec">Clip length</label>
     <div class="vn-v">
       <select id="vnClipSec" title="How much sound is sent for each try (AudD uses about 12 seconds at most). Each try is one request per service asked."><option value="10">10 s</option><option value="12">12 s</option></select>
