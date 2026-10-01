@@ -8,7 +8,7 @@
 </div>
 <div class="row">
   <button id="vnToggle" class="primary">Start listening</button>
-  <button id="vnNow" title="Listen for 10 seconds and identify it now (one request)">Identify now</button>
+  <button id="vnNow" title="Record a clip (see Clip below) and identify it now (one request)">Identify now</button>
   <span id="vnStatus" style="font-weight:600"></span>
 </div>
 <div id="vnWaveBox" hidden style="margin:2px 0 10px">
@@ -27,6 +27,8 @@
   <select id="vnAutoOff"><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select>
   <label>Monthly limit</label><input type="number" id="vnCap" min="0" max="100000" style="width:90px">
   <label><input type="checkbox" id="vnAutoShow"> Show on the Times Gate when I start</label>
+  <label>Clip</label>
+  <select id="vnClipSec" title="How much sound is sent to AudD for each try. Longer can match better through a room; each try is still one request."><option value="10">10 s</option><option value="15">15 s</option><option value="20">20 s</option></select>
   <label title="Cuts bass boom, turntable rumble and mains hum below 120 Hz, lifts voices a little, and evens out the level before sending. Helps with big speakers."><input type="checkbox" id="vnClean"> Clean up clips (cut bass rumble)</label>
 </div>
 <div data-tg-controls></div>

@@ -44,6 +44,7 @@
     $p('#vnAutoOff').value = s.autoOffMin;
     $p('#vnAutoShow').checked = s.autoShow;
     $p('#vnClean').checked = s.cleanClip;
+    $p('#vnClipSec').value = String(s.clipSec || 10);
     const h = $p('#vnHistory');
     h.innerHTML = s.history.length ? '<table class="wx"></table>' : '';
     for (const t of s.history) {
@@ -135,7 +136,7 @@
   // Poll faster while it's listening, so "Listening… / Identifying…" and the result show promptly.
   $p('#vnNow').onclick = async () => {
     await call('now', {});
-    for (let i = 0; i < 20 && st && st.phase === 'identifying'; i++) {
+    for (let i = 0; i < 40 && st && st.phase === 'identifying'; i++) {  // up to a 20 s clip plus sending
       await new Promise(r => setTimeout(r, 1000));
       try { apply(await (await fetch('/api/engine/state')).json().then(s => s.plugins.vinyl)); } catch {}
     }
@@ -144,5 +145,6 @@
   $p('#vnAutoOff').onchange = e => call('options', { autoOffMin: Number(e.target.value) });
   $p('#vnCap').onchange = e => call('options', { cap: Number(e.target.value) });
   $p('#vnAutoShow').onchange = e => call('options', { autoShow: e.target.checked });
+  $p('#vnClipSec').onchange = e => call('options', { clipSec: Number(e.target.value) });
   $p('#vnClean').onchange = e => call('options', { cleanClip: e.target.checked });
 })();

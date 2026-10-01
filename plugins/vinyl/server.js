@@ -8,7 +8,7 @@
 //  - skips identifying while the Spotify plugin says Spotify is playing (that's not the record)
 const { renderVinyl, vnArtColours } = require('./public/render.js');
 
-const CLIP_MS = 10000;           // sound sent per request
+const CLIP_SECS = [10, 15, 20];  // choices for the sound sent per request (longer can match better through a room)
 const MUSIC_MS = 3000;           // music this long before trying
 const GAP_MS = 1200;             // quiet this long = gap between tracks
 const MIN_TRACK_MS = 45000;      // ignore "gaps" this soon after a match (quiet passages)
@@ -48,7 +48,7 @@ const monthKey = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 
 module.exports = tg => {
   const s = tg.settings;
-  s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true; s.cleanClip ??= true;
+  s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true; s.cleanClip ??= true; s.clipSec ??= 10;
   s.usage ??= { month: monthKey(), count: 0 }; s.history ??= [];
   // Start the listening log with the songs identified before it existed (once).
   if (!s.historyLogged && tg.listening.available) {
@@ -130,7 +130,7 @@ module.exports = tg => {
       }
       if (used() >= s.cap) return turnOff(`Stopped: this month's limit of ${s.cap} requests is used up.`);
       status = 'Listening to identify…';
-      const raw = await tg.mic.record(CLIP_MS);
+      const raw = await tg.mic.record(s.clipSec * 1000);
       const wav = s.cleanClip ? cleanClip(raw) : raw;
       lastClip = { wav, at: Date.now(), outcome: 'sending…', cleaned: s.cleanClip };
       if (cancelled()) return;
@@ -185,7 +185,7 @@ module.exports = tg => {
       art, link: res.song_link || null, spotify: res.spotify?.external_urls?.spotify || null, identifiedAt: now };
     const same = track && track.title === t.title && track.artist === t.artist;
     // Check again around the track's end if no gap is heard (e.g. tracks that run into each other).
-    const left = duration && pos != null && duration < 20 * 60000 ? duration - pos - CLIP_MS : 4 * 60000;
+    const left = duration && pos != null && duration < 20 * 60000 ? duration - pos - s.clipSec * 1000 : 4 * 60000;
     t.checkAt = now + Math.max(same ? 2 * 60000 : 60000, left + 15000);
     track = t; phase = 'playing';
     status = `${t.title} — ${t.artist}`;
@@ -255,7 +255,7 @@ module.exports = tg => {
   const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the AudD token from the computer running the controller, or one it trusts.'), { status: 403 }); };
   const state = () => ({
     active, phase, status, until: active ? until : null, hasToken: !!s.token,
-    used: used(), cap: s.cap, autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip,
+    used: used(), cap: s.cap, autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec,
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link },
     history: s.history.slice(0, 8),
     lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome, cleaned: lastClip.cleaned },
@@ -276,6 +276,7 @@ module.exports = tg => {
         if (Number.isFinite(b.autoOffMin) && b.autoOffMin >= 5 && b.autoOffMin <= 720) s.autoOffMin = Math.round(b.autoOffMin);
         if (typeof b.autoShow === 'boolean') s.autoShow = b.autoShow;
         if (typeof b.cleanClip === 'boolean') s.cleanClip = b.cleanClip;
+        if (CLIP_SECS.includes(b.clipSec)) s.clipSec = b.clipSec;
         tg.save();
         return state();
       },
