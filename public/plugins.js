@@ -68,7 +68,7 @@ const TG = (() => {
   // Marks and a comment on a play in the listening log (a record that skips, a wrong match…).
   // play: { id, title, artist, tags: 'Skips,Crackles' or null, note }. Opens a small dialog; resolves
   // to the saved play, or null if it was closed without saving.
-  const NOTE_TAGS = ['Skips', 'Crackles', 'Poor quality', 'Needs cleaning', 'Wrong song'];
+  const NOTE_TAGS = ['Skips', 'Crackles', 'Poor quality', 'Needs cleaning', 'Wrong song', 'Wrong album', 'Wrong Discogs entry'];
   function editNote(play) {
     return new Promise(resolve => {
       const dlg = document.createElement('dialog');

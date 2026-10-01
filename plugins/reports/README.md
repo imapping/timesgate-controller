@@ -12,7 +12,7 @@ In the card:
   day). Hover over or tap a bar for its figure.
 - **Latest plays**, each with a star (favourite) and a **Note** button.
 - **Favourites:** the songs you've starred, with their plays in the period. Favourites also show a ★ in Top songs.
-- **Your notes:** every play you've marked (Skips, Crackles, Poor quality, Needs cleaning, Wrong song) or commented on, with its
+- **Your notes:** every play you've marked (Skips, Crackles, Poor quality, Needs cleaning, Wrong song, Wrong album, Wrong Discogs entry) or commented on, with its
   album and position on the record, and a count of each mark. Handy as a list of records that need cleaning or replacing.
 
 On the Times Gate:

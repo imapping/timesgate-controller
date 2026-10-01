@@ -125,7 +125,7 @@ Only the clips are sent to the services. Nothing is saved to disk: the last clip
 
 The star next to a song in the history makes it a favourite; the Listening reports card lists your favourites.
 
-Each song in the card's history has a **Note** button: mark it as Skips, Crackles, Poor quality, Needs cleaning or Wrong song, and
+Each song in the card's history has a **Note** button: mark it as Skips, Crackles, Poor quality, Needs cleaning, Wrong song, Wrong album or Wrong Discogs entry, and
 add a comment. Notes are saved with the play in the listening log, and the Listening reports card lists them.
 
 ## Input and live listening
