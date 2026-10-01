@@ -25,6 +25,36 @@ one it trusts). The keys stay on the controller and are never sent to the page.
 - **AudD, then ACRCloud if no match:** asks AudD first, and only asks ACRCloud when AudD finds
   nothing. Each service has its own monthly limit in the card.
 
+## Its own recognition
+
+Vinyl learns the records you play, so a record only needs a recognition service the first time.
+- While a track plays, its sound is fingerprinted (the strongest pitches and the timing between
+  them). When the track ends, the fingerprint is saved under the name the service gave it (with the
+  album, position and cover from Discogs, if that's set up).
+- Each time it identifies, it checks its own fingerprints first. A track it knows is recognised on
+  the controller in a fraction of a second, with no request sent. The history marks these "own".
+- Anything it doesn't know goes to the service as before, and is learned for next time.
+- If only part of a track was heard the first time (listening started halfway), a later, longer
+  play replaces it.
+
+In the card's settings, **Own recognition** shows how many tracks are learned and how often they
+were recognised here, and **Show learned tracks** lists them with a **Forget** button each (for a
+track learned under the wrong name; it's learned again the next time it plays). Untick the box to
+switch learning and own recognition off.
+
+Notes:
+- Fingerprints are kept in `data/vinyl-prints.db` (SQLite), about 1.5 MB for an LP. It needs
+  better-sqlite3, like the listening log.
+- A track is only learned if it had a clear gap after it and one name. Tracks that run into each
+  other without a gap aren't learned, and keep using the service.
+- Fingerprints are of your deck at its own speed, so the turntable speed correction isn't needed
+  for them. If you change the **Turntable speed** setting later (after adjusting the deck), clips
+  are converted to the old speed before matching, so what's learned still works.
+- It recognises your own records as your equipment plays them. It won't recognise the same song
+  from the radio, a different pressing or a streaming service.
+- With learned tracks, listening works even with no service set up or the monthly limit used up:
+  known tracks are recognised, others are "not recognised".
+
 ## Your Discogs collection
 
 If your records are listed on [Discogs](https://www.discogs.com), each identified song is matched to

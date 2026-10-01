@@ -58,6 +58,8 @@ record in this browser (the same controls as the Microphone card).
 Its settings: the recognition service (AudD, ACRCloud, or AudD with ACRCloud as a backup) and monthly
 limits, when to switch off, and for records, a **turntable speed** correction. A turntable that runs
 even 2% fast isn't recognised, so you enter its measured speed and clips are corrected before they're sent.
+Vinyl also **learns the records you play**: each track is fingerprinted as it plays, and next time it's recognised on the
+controller itself, with no request to the service.
 If your records are listed on [Discogs](https://www.discogs.com), add your username and a token and each song is
 matched to the record you own: the right album, year and cover, and which side and track it is.
 

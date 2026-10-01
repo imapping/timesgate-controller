@@ -2,7 +2,7 @@
 (() => {
   const p = TG.plugin('vinyl');
   const $p = sel => p.el(sel);
-  let st = null, changingKeys = false, changingDc = false;   // changingKeys: showing the key fields to replace saved keys
+  let st = null, changingKeys = false, changingDc = false, learnedOpen = false;   // changingKeys: showing the key fields to replace saved keys
   const art = new Map();
 
   async function loadArt(url) {
@@ -47,6 +47,7 @@
     $p('#vnStatus').textContent = s.status + off;
     $p('#vnUsage').textContent = [usesAudd && `AudD: ${s.used} of ${s.cap}`, usesAcr && `ACRCloud: ${s.acrUsed} of ${s.acrCap}`]
       .filter(Boolean).join(' · ') + ' requests used this month.'
+      + (s.learn.available && s.learn.saved ? ` Recognised here: ${s.learn.saved.toLocaleString()}.` : '')
       + (s.logged != null ? ` Listening log: ${s.logged.toLocaleString()} plays saved.` : '');
     // The last clip sent to AudD, to hear what it heard.
     $p('#vnClipRow').style.display = s.lastClip ? '' : 'none';
@@ -61,6 +62,15 @@
     $p('#vnClean').checked = s.cleanClip;
     $p('#vnClipSec').value = String(s.clipSec || 12);
     if (document.activeElement !== $p('#vnRpm')) $p('#vnRpm').value = s.rpm;
+    // Own recognition: what has been learned so far.
+    const L = s.learn;
+    $p('#vnLearn').checked = L.on; $p('#vnLearn').disabled = !L.available;
+    $p('#vnLearnInfo').textContent = !L.available ? 'Not available on this computer (' + (L.error || 'no database') + ').'
+      : !L.tracks ? 'Nothing learned yet.'
+      : `${L.tracks.toLocaleString()} ${L.tracks === 1 ? 'track' : 'tracks'} learned (${L.minutes >= 120 ? Math.round(L.minutes / 60) + ' hours' : L.minutes + ' min'}, ${L.mb} MB) · recognised here ${L.saved.toLocaleString()} ${L.saved === 1 ? 'time' : 'times'}`;
+    $p('#vnLearnShow').style.display = L.tracks || learnedOpen ? '' : 'none';
+    $p('#vnLearnShow').textContent = learnedOpen ? 'Hide learned tracks' : 'Show learned tracks';
+    $p('#vnLearned').hidden = !learnedOpen;
     // The Discogs collection: how much of it is loaded (the token stays in the server).
     const d = s.discogs;
     $p('#vnDcSetup').hidden = d.set && !changingDc;
@@ -89,7 +99,8 @@
         rec.textContent = t.album;
         tr.children[1].append(rec, t.pos ? ` (${t.pos})` : '');
       } else if (t.album) tr.children[1].append(t.album);
-      tr.children[2].textContent = new Date(t.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+      tr.children[2].textContent = new Date(t.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + (t.own ? ' · own' : '');
+      if (t.own) tr.children[2].title = 'Recognised from your own recordings, without a request';
       // Your note on this play (it skips, crackles…), kept in the listening log.
       const marks = TG.noteText(t);
       if (marks) { const m = document.createElement('span'); m.className = 'play-note'; m.textContent = marks; tr.children[1].append(m); }
@@ -196,6 +207,31 @@
   $p('#vnDcChange').onclick = () => { changingDc = !changingDc; if (st) apply(st); };
   $p('#vnDcRefresh').onclick = () => call('discogs', {});
   $p('#vnDcRemove').onclick = () => { if (confirm('Remove your Discogs details and the saved copy of your collection from the controller?')) { $p('#vnDcUser').value = ''; call('options', { discogs: {} }); } };
+  // The learned tracks (the latest 50, or those matching the search), each with a Forget button.
+  function drawLearned(tracks) {
+    const box = $p('#vnLearnList');
+    box.innerHTML = tracks.length ? '<table class="wx"></table>' : '<div class="hint">Nothing found.</div>';
+    for (const t of tracks) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td></td><td></td><td class="hint"></td><td style="width:1%;padding-right:0"><button class="note-btn">Forget</button></td>';
+      tr.children[0].textContent = t.title;
+      tr.children[1].textContent = t.artist + (t.album ? ' — ' + t.album : '') + (t.position ? ` (${t.position})` : '');
+      tr.children[2].textContent = `${Math.floor(t.secs / 60)}:${String(Math.round(t.secs % 60)).padStart(2, '0')} learned`;
+      tr.querySelector('button').onclick = async () => {
+        try { const r = await p.api('forget', { id: t.id, q: $p('#vnLearnQ').value }); drawLearned(r.tracks); apply(r); } catch (e) { log('Vinyl: ' + e.message, 'e'); }
+      };
+      box.firstChild.append(tr);
+    }
+  }
+  const loadLearned = async () => { try { drawLearned((await p.api('learned?q=' + encodeURIComponent($p('#vnLearnQ').value))).tracks); } catch (e) { log('Vinyl: ' + e.message, 'e'); } };
+  $p('#vnLearn').onchange = e => call('options', { learn: e.target.checked });
+  $p('#vnLearnShow').onclick = () => { learnedOpen = !learnedOpen; if (st) apply(st); if (learnedOpen) loadLearned(); };
+  let learnTimer = null;
+  $p('#vnLearnQ').oninput = () => { clearTimeout(learnTimer); learnTimer = setTimeout(loadLearned, 300); };
+  $p('#vnForgetAll').onclick = async () => {
+    if (!confirm('Forget every learned track? Records will be learned again as you play them, using the recognition service.')) return;
+    try { const r = await p.api('forget', { id: 'all' }); drawLearned(r.tracks); apply(r); } catch (e) { log('Vinyl: ' + e.message, 'e'); }
+  };
   $p('#vnAcrCap').onchange = e => call('options', { acrCap: Number(e.target.value) });
   $p('#vnAutoOff').onchange = e => call('options', { autoOffMin: Number(e.target.value) });
   $p('#vnCap').onchange = e => call('options', { cap: Number(e.target.value) });

@@ -119,6 +119,22 @@
         <button id="vnDcSave">Save</button>
       </div>
     </div>
+    <label for="vnLearn">Own recognition</label>
+    <div class="vn-v">
+      <label title="Each track is fingerprinted as it plays, under the name the service gave it. Next time, it's recognised here without a request."><input type="checkbox" id="vnLearn"> Learn the records I play, and recognise them here first</label>
+    </div>
+    <div class="vn-v" style="grid-column:2">
+      <span id="vnLearnInfo" class="vn-unit"></span>
+      <button id="vnLearnShow" style="display:none">Show learned tracks</button>
+    </div>
+    <div id="vnLearned" class="vn-wide" hidden>
+      <div class="row">
+        <input type="text" id="vnLearnQ" placeholder="Find a title, artist or album" style="width:260px" aria-label="Find a learned track">
+        <button id="vnForgetAll" class="danger" title="From the controller's computer or a trusted one">Forget everything</button>
+      </div>
+      <div id="vnLearnList"></div>
+      <p class="hint">The latest 50 are shown. If a track was learned under the wrong name, forget it and it will be learned again the next time it plays.</p>
+    </div>
     <label for="vnClipSec">Clip length</label>
     <div class="vn-v">
       <select id="vnClipSec" title="How much sound is sent for each try (AudD uses about 12 seconds at most). Each try is one request per service asked."><option value="10">10 s</option><option value="12">12 s</option></select>
@@ -129,4 +145,4 @@
   </div>
 </details>
 
-<p class="hint">Once a record is identified it waits for the quiet gap before the next track (or the track's expected end), so each track costs one request. It won't try while Spotify is playing, stops at the monthly limits, and switches itself off after the time set. <span id="vnTokenNote"></span></p>
+<p class="hint">Once a record is identified it waits for the quiet gap before the next track (or the track's expected end), so each track costs one request. Tracks it has learned from an earlier play are recognised here and cost nothing. It won't try while Spotify is playing, stops at the monthly limits, and switches itself off after the time set. <span id="vnTokenNote"></span></p>
