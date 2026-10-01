@@ -1,33 +1,25 @@
-<div class="row">
-  <label for="vnProvider">Service</label>
-  <select id="vnProvider" title="Which music recognition service identifies the clips">
-    <option value="audd">AudD</option><option value="acr">ACRCloud</option><option value="both">AudD, then ACRCloud if no match</option>
-  </select>
-  <span id="vnKeys" class="hint" style="margin:0"></span>
-  <button id="vnChangeKeys" style="display:none" title="Enter new keys (from the controller's computer or a trusted one)">Change keys</button>
-</div>
-<div id="vnSetup" hidden>
-  <p class="hint" style="margin-top:0">AudD needs an API token from <a href="https://dashboard.audd.io" target="_blank" rel="noopener">dashboard.audd.io</a>.
-    Paste it here from your computer (the one running the controller, or one it trusts; not a phone):</p>
-  <div class="row">
-    <input type="password" id="vnToken" placeholder="AudD API token" style="width:300px" autocomplete="off" spellcheck="false">
-    <button id="vnSaveToken">Save token</button>
-  </div>
-</div>
-<div id="vnAcrSetup" hidden>
-  <p class="hint" style="margin-top:0">ACRCloud: in the <a href="https://console.acrcloud.com" target="_blank" rel="noopener">ACRCloud console</a>, create an
-    <b>Audio &amp; Video Recognition</b> project (audio source: <b>Recorded Audio</b>, bucket: <b>ACRCloud Music</b>), then paste its
-    host, access key and access secret here from your computer (the one running the controller, or one it trusts; not a phone):</p>
-  <div class="row">
-    <input type="text" id="vnAcrHost" placeholder="identify-eu-west-1.acrcloud.com" style="width:260px" autocomplete="off" spellcheck="false">
-    <input type="password" id="vnAcrKey" placeholder="Access key" style="width:200px" autocomplete="off" spellcheck="false">
-    <input type="password" id="vnAcrSecret" placeholder="Access secret" style="width:200px" autocomplete="off" spellcheck="false">
-    <button id="vnSaveAcr">Save keys</button>
-  </div>
-</div>
+<style>
+  /* Vinyl settings: a label column and a value column, in groups. */
+  #plugin-vinyl details.vn-settings { border-top: 1px solid var(--line); margin-top: 12px; }
+  #plugin-vinyl details.vn-settings > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); padding: 10px 0 4px; }
+  .vn-set { display: grid; grid-template-columns: max-content 1fr; gap: 10px 16px; align-items: center; margin: 4px 0 6px; }
+  .vn-set > .vn-group { grid-column: 1 / -1; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-top: 8px; }
+  .vn-set > .vn-group:first-child { margin-top: 0; }
+  .vn-set > label { font-size: 13px; color: var(--muted); }
+  .vn-set > .vn-v { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; min-width: 0; }
+  .vn-set > .vn-wide { grid-column: 1 / -1; }
+  .vn-set > .vn-note { grid-column: 2; margin: -4px 0 0; }
+  .vn-set .vn-unit { font-size: 13px; color: var(--muted); }
+  @media (max-width: 560px) {
+    .vn-set { grid-template-columns: 1fr; gap: 6px; }
+    .vn-set > .vn-note { grid-column: 1; margin-top: 0; }
+    .vn-set > label { margin-top: 6px; }
+  }
+</style>
+
 <div class="row">
   <button id="vnToggle" class="primary">Start listening</button>
-  <button id="vnNow" title="Record a clip (see Clip below) and identify it now (one request)">Identify now</button>
+  <button id="vnNow" title="Record a clip and identify it now (one request)">Identify now</button>
   <span id="vnStatus" style="font-weight:600"></span>
 </div>
 <div id="vnWaveBox" hidden style="margin:2px 0 10px">
@@ -35,24 +27,83 @@
   <canvas id="vnScope" style="width:100%;height:48px;display:block;margin-top:6px;border-radius:8px;background:var(--field)" title="The sound right now"></canvas>
   <div id="vnWaveInfo" class="hint" style="margin-top:4px"></div>
 </div>
+<p id="vnTip" class="hint" style="display:none;margin:0 0 10px">
+  <b>Playing vinyl?</b> Records are only recognised if the turntable turns at the right speed. Check yours runs at 33.3 RPM
+  (a turntable speed app, with the phone on the platter), or enter its measured speed under <b>Settings → Turntable speed</b>.</p>
 <div class="row">
   <span id="vnUsage" class="hint" style="margin:0"></span>
 </div>
 <div class="row" id="vnClipRow" style="display:none">
   <span class="hint" style="margin:0">Last clip sent <span id="vnClipInfo"></span> · <a id="vnClipLink" href="/api/vinyl/clip" target="_blank" rel="noopener" style="color:inherit">listen</a> (from the controller's computer or a trusted one)</span>
 </div>
-<div class="row">
-  <label>Switch off after</label>
-  <select id="vnAutoOff"><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select>
-  <label>Monthly limit: AudD</label><input type="number" id="vnCap" min="0" max="100000" style="width:80px">
-  <label>ACRCloud</label><input type="number" id="vnAcrCap" min="0" max="100000" style="width:80px">
-  <label><input type="checkbox" id="vnAutoShow"> Show on the Times Gate when I start</label>
-  <label>Clip</label>
-  <select id="vnClipSec" title="How much sound is sent for each try (AudD uses about 12 seconds at most). Each try is one request per service asked."><option value="10">10 s</option><option value="12">12 s</option></select>
-  <label for="vnRpm" title="Measure your turntable at 33 RPM with a speed app (a phone on the platter) and enter the reading. Clips are slowed or sped up to match, because fingerprinting fails if a deck runs even 2% fast or slow. Leave at 33.33 if it's accurate.">Turntable speed at 33</label>
-  <input type="number" id="vnRpm" min="30" max="37" step="0.01" style="width:80px" title="The speed your turntable really runs at 33 RPM (33.33 = correct)">
-  <label title="Cuts bass boom, turntable rumble and mains hum below 120 Hz, lifts voices a little, and evens out the level before sending. Helps with big speakers."><input type="checkbox" id="vnClean"> Clean up clips (cut bass rumble)</label>
-</div>
 <div data-tg-controls></div>
 <div id="vnHistory"></div>
-<p class="hint">Once a record is identified it waits for the quiet gap before the next track (or the track's expected end), so each track costs one request. It won't try while Spotify is playing, stops at the monthly limit, and switches itself off after the time above. <span id="vnTokenNote"></span></p>
+
+<details class="vn-settings" id="vnSettings">
+  <summary>Settings</summary>
+  <div class="vn-set">
+    <div class="vn-group">Service</div>
+    <label for="vnProvider">Recognition service</label>
+    <div class="vn-v">
+      <select id="vnProvider" title="Which music recognition service identifies the clips">
+        <option value="audd">AudD</option><option value="acr">ACRCloud</option><option value="both">AudD, then ACRCloud if no match</option>
+      </select>
+      <span id="vnKeys" class="vn-unit"></span>
+      <button id="vnChangeKeys" style="display:none" title="Enter new keys (from the controller's computer or a trusted one)">Change keys</button>
+    </div>
+    <div id="vnSetup" class="vn-wide" hidden>
+      <p class="hint" style="margin-top:0">AudD needs an API token from <a href="https://dashboard.audd.io" target="_blank" rel="noopener">dashboard.audd.io</a>.
+        Paste it here from your computer (the one running the controller, or one it trusts; not a phone):</p>
+      <div class="row">
+        <input type="password" id="vnToken" placeholder="AudD API token" style="width:300px" autocomplete="off" spellcheck="false">
+        <button id="vnSaveToken">Save token</button>
+      </div>
+    </div>
+    <div id="vnAcrSetup" class="vn-wide" hidden>
+      <p class="hint" style="margin-top:0">ACRCloud: in the <a href="https://console.acrcloud.com" target="_blank" rel="noopener">ACRCloud console</a>, create an
+        <b>Audio &amp; Video Recognition</b> project with the <b>ACRCloud Music</b> bucket. For the audio source choose <b>Line-in Audio</b> if the
+        turntable is plugged in directly, or <b>Recorded Audio</b> for a microphone. Then paste its host, access key and access secret here from
+        your computer (the one running the controller, or one it trusts; not a phone):</p>
+      <div class="row">
+        <input type="text" id="vnAcrHost" placeholder="identify-eu-west-1.acrcloud.com" style="width:260px" autocomplete="off" spellcheck="false">
+        <input type="password" id="vnAcrKey" placeholder="Access key" style="width:200px" autocomplete="off" spellcheck="false">
+        <input type="password" id="vnAcrSecret" placeholder="Access secret" style="width:200px" autocomplete="off" spellcheck="false">
+        <button id="vnSaveAcr">Save keys</button>
+      </div>
+    </div>
+    <label>Monthly limits</label>
+    <div class="vn-v">
+      <span id="vnCapAudd"><span class="vn-unit">AudD</span> <input type="number" id="vnCap" min="0" max="100000" style="width:84px" aria-label="AudD monthly limit"></span>
+      <span id="vnCapAcr"><span class="vn-unit">ACRCloud</span> <input type="number" id="vnAcrCap" min="0" max="100000" style="width:84px" aria-label="ACRCloud monthly limit"></span>
+      <span class="vn-unit">requests a month</span>
+    </div>
+
+    <div class="vn-group">Listening</div>
+    <label for="vnAutoOff">Switch off after</label>
+    <div class="vn-v">
+      <select id="vnAutoOff"><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select>
+    </div>
+    <label for="vnAutoShow">When I start</label>
+    <div class="vn-v"><label><input type="checkbox" id="vnAutoShow"> Show it on the Times Gate</label></div>
+
+    <div class="vn-group">Records and sound</div>
+    <label for="vnRpm">Turntable speed</label>
+    <div class="vn-v">
+      <input type="number" id="vnRpm" min="30" max="37" step="0.01" style="width:84px" title="The speed your turntable really runs at 33 RPM (33.33 = correct)">
+      <span class="vn-unit">RPM, measured at 33</span>
+    </div>
+    <p class="hint vn-note"><b>Playing vinyl rather than digital music?</b> Records are only recognised at the right speed: a turntable even 2% fast or slow
+      sounds fine but isn't matched. Either check yours runs at 33.3 RPM (a turntable speed app, with the phone on the platter) and adjust the
+      turntable, or enter the speed it measures here and clips are corrected before they're sent. Leave it at 33.33 for radio, streaming or an
+      accurate turntable.</p>
+    <label for="vnClipSec">Clip length</label>
+    <div class="vn-v">
+      <select id="vnClipSec" title="How much sound is sent for each try (AudD uses about 12 seconds at most). Each try is one request per service asked."><option value="10">10 s</option><option value="12">12 s</option></select>
+      <span class="vn-unit">sent for each try</span>
+    </div>
+    <label for="vnClean">Clean up clips</label>
+    <div class="vn-v"><label title="Cuts everything below 120 Hz, lifts voices a little, and evens out the level before sending."><input type="checkbox" id="vnClean"> Cut bass boom, rumble and mains hum (helps with a microphone near big speakers)</label></div>
+  </div>
+</details>
+
+<p class="hint">Once a record is identified it waits for the quiet gap before the next track (or the track's expected end), so each track costs one request. It won't try while Spotify is playing, stops at the monthly limits, and switches itself off after the time set. <span id="vnTokenNote"></span></p>

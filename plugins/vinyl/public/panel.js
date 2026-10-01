@@ -34,6 +34,12 @@
       usesAcr && `ACRCloud ${s.acrSet ? '✓ ' + s.acrHost : '(not set up)'}`].filter(Boolean).join(' · ');
     $p('#vnChangeKeys').style.display = (usesAudd && s.auddSet) || (usesAcr && s.acrSet) ? '' : 'none';
     $p('#vnTokenNote').textContent = s.hasToken ? 'To change keys, open this page on the computer running the controller, or one it trusts.' : '';
+    // Settings open by themselves while nothing is set up (or keys are being changed).
+    if (!s.hasToken || changingKeys) $p('#vnSettings').open = true;
+    $p('#vnCapAudd').style.display = usesAudd ? '' : 'none';
+    $p('#vnCapAcr').style.display = usesAcr ? '' : 'none';
+    // Records at the wrong speed aren't recognised: say so when matching is failing.
+    $p('#vnTip').style.display = /Not recognised|Couldn't identify/.test(s.status) ? '' : 'none';
     $p('#vnToggle').textContent = s.active ? 'Stop listening' : 'Start listening';
     $p('#vnToggle').disabled = !s.hasToken;
     $p('#vnNow').disabled = !s.hasToken || s.phase === 'identifying';

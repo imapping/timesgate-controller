@@ -150,6 +150,10 @@ all work without setup except:
   API token), [ACRCloud](https://console.acrcloud.com/) (often better with records through speakers;
   a project host, access key and secret), or AudD with ACRCloud as a backup. Paste the keys into the
   card from the computer running the controller. Set monthly limits to match your plans.
+  **Playing records rather than digital music?** They're only recognised at the right speed: check your
+  turntable runs at 33.3 RPM (a turntable speed app, with the phone on the platter), or enter its
+  measured speed in the card's settings and clips are corrected before they're sent. A direct
+  connection (a turntable's USB output, or a line-in sound card) works better than a microphone.
 - **Weather:** search for your town in the Weather card.
 - **GitHub:** add your repositories in the GitHub card. For visitors and clones, add a
   fine-grained token with **Administration: Read-only** (see the plugin's Read me).
