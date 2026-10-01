@@ -58,6 +58,10 @@ even 2% fast isn't recognised, so you enter its measured speed and clips are cor
 If your records are listed on [Discogs](https://www.discogs.com), add your username and a token and each song is
 matched to the record you own: the right album, year and cover, and which side and track it is.
 
+![The Vinyl card with a side of Brothers In Arms matched to the Discogs collection, each song with its album and position](docs/screenshots/vinyl-discogs.png)
+
+![The five screens: the record's cover, the song title, the artist, and a spinning record with the album, year, side and track](docs/screenshots/screens-vinyl.png)
+
 ![The Vinyl card's settings: service, monthly limits, switch-off time, turntable speed, clip length and clean-up](docs/screenshots/vinyl-settings.png)
 
 **Listening reports:** everything Vinyl identifies and Spotify plays is saved to a listening log. The
