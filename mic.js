@@ -156,6 +156,7 @@ function start() {
   p.on('close', code => {
     if (proc !== p) return;
     proc = null;
+    endRecordings();
     if (!inUse()) return;
     error = (errText.trim().split('\n').pop() || `capture stopped (${code})`).slice(0, 200);
     log('Capture stopped:', error, '— retrying in 5 s.');
@@ -168,6 +169,9 @@ function stop() {
   last = { level: 0, db: -99, bpm: null };
 }
 const inUse = () => listeners.size > 0 || recorders.size > 0 || hqListeners.size > 0;
+// The capture stopped or is being restarted, so sound will be missing: close the recording streams
+// (see stream's keep), so each recording is cut short there instead of carrying on with a hole in it.
+function endRecordings() { for (const fn of [...hqListeners]) if (fn.end) { hqListeners.delete(fn); fn.end(); } }
 
 // The capture's stereo bytes: pass whole frames to the full-quality streams, and turn them into mono.
 function onData(buf) {
@@ -231,6 +235,7 @@ function stream(req, res, hq = false, keep = false) {
       ? buf => { if (res.writableLength < KEEP_MAX) res.write(buf); else res.destroy(); }
       : buf => { if (res.writableLength < 1024 * 1024) res.write(buf); };
     fn.who = keep ? 'recording' : 'live listening';
+    if (keep) fn.end = () => res.destroy();
     hqListeners.add(fn);
     start();
     req.on('close', () => { hqListeners.delete(fn); if (!inUse()) stop(); });
@@ -276,7 +281,7 @@ function status() {
 
 function setDevice(device) {
   conf.device = device ? String(device).slice(0, 200) : null; foreignDevice = false; saveConf();
-  if (proc) { const p = proc; proc = null; p.kill(); }
+  if (proc) { const p = proc; proc = null; p.kill(); endRecordings(); }
   clearTimeout(restartTimer); restartTimer = null;
   if (inUse()) start();  // carry on with the new device
 }

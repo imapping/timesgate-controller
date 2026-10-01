@@ -610,6 +610,12 @@ module.exports = tg => {
       },
       // The records in the Discogs collection, for choosing what's about to play.
       'GET /records': () => ({ records: discogs.records() }),
+      // One side's tracks, in order with their lengths, without choosing it: ?id=…&side=A (for the Vinyl Digitizer).
+      'GET /side': ctx => {
+        const side = discogs.side(ctx.query.get('id'), ctx.query.get('side') || '');
+        if (!side) throw Object.assign(new Error('That record or side isn\'t in the saved collection.'), { status: 404 });
+        return side;
+      },
       // Choose a side: { id, side }. Its tracks then name what plays, in order. { index } says which track is
       // playing now (or is next, when nothing's playing). {} stops using it.
       'POST /cue': ctx => {
