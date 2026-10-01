@@ -9,7 +9,7 @@ working with the page closed.
   now playing, Claude Code status, GitHub repository stats, a music visualizer and vinyl record
   recognition.
   They can be installed or removed from the page.
-- A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD)
+- A **USB microphone** for the visualizer (beat-synced lights) and for recognising records (AudD and/or ACRCloud)
 - A **USB button box** (an arcade joystick kit) or game controller: map each button to any action
 - **Several Times Gates**, each with its own screens and settings
 
@@ -44,7 +44,7 @@ and a rainbow edge light:
 ![The Vinyl card, with recently identified tracks](docs/screenshots/vinyl.png)
 
 While it listens, the card shows the sound live: a scrolling waveform of the last 9 seconds and
-a trace of the sound right now. The clip sent to AudD shows in orange. This is only on the page,
+a trace of the sound right now. The clip being identified shows in orange. This is only on the page,
 not the Times Gate.
 
 ![The Vinyl card showing a live waveform while listening to a record](docs/screenshots/vinyl-waveform.png)
@@ -145,8 +145,10 @@ all work without setup except:
   the redirect URI `http://127.0.0.1:8080/api/spotify/callback`. Paste its Client ID into the
   Spotify card and click Connect. Do this on the computer running the controller, because Spotify
   only accepts that `127.0.0.1` address (on a Pi, see [below](#running-on-a-raspberry-pi)).
-- **Vinyl:** get an API token from [AudD](https://dashboard.audd.io/) and paste it into the Vinyl
-  card (on the computer running the controller). Set a monthly limit to match your plan.
+- **Vinyl:** choose a recognition service in the Vinyl card: [AudD](https://dashboard.audd.io/) (an
+  API token), [ACRCloud](https://console.acrcloud.com/) (often better with records through speakers;
+  a project host, access key and secret), or AudD with ACRCloud as a backup. Paste the keys into the
+  card from the computer running the controller. Set monthly limits to match your plans.
 - **Weather:** search for your town in the Weather card.
 - **GitHub:** add your repositories in the GitHub card. For visitors and clones, add a
   fine-grained token with **Administration: Read-only** (see the plugin's Read me).
@@ -280,8 +282,9 @@ Some plugins use online services. Each user sets up their own account or key; no
 - **Spotify:** needs your own Client ID from the
   [Spotify developer dashboard](https://developer.spotify.com/dashboard). Use is subject to
   Spotify's developer terms.
-- **Vinyl:** uses [AudD](https://audd.io/) music recognition, a paid service with your own API token.
-  The plugin only listens on request and has a monthly cap.
+- **Vinyl:** uses [AudD](https://audd.io/) and/or [ACRCloud](https://www.acrcloud.com/) music
+  recognition, paid services with your own keys. Album art for ACRCloud matches comes from
+  Spotify's public oEmbed service. The plugin only listens on request and has monthly caps.
 - **GitHub:** uses the GitHub API. It works without a token; an optional read-only token of your
   own adds visitors, clones and your contribution graph.
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.
@@ -294,8 +297,8 @@ excluded from git.
 
 ## Disclaimer
 
-This is an unofficial project, not affiliated with or endorsed by Divoom, Spotify, AudD or
-Anthropic. Divoom and Times Gate are trademarks of Divoom; Spotify is a trademark of Spotify AB;
+This is an unofficial project, not affiliated with or endorsed by Divoom, Spotify, AudD,
+ACRCloud or Anthropic. Divoom and Times Gate are trademarks of Divoom; Spotify is a trademark of Spotify AB;
 Claude is a trademark of Anthropic.
 
 ## License

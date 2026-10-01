@@ -1,4 +1,5 @@
-// Identifies records playing near the microphone with AudD (audd.io), and shows them like Spotify.
+// Identifies records playing near the microphone with AudD (audd.io) and/or ACRCloud (acrcloud.com),
+// and shows them like Spotify.
 // Built to stay inside a monthly request budget:
 //  - only runs when switched on, and switches itself off after a set time
 //  - one request per track: after a match it waits for the quiet gap before the next track
@@ -6,6 +7,7 @@
 //  - misses wait 30 s; after 3 in a row it waits for the next track
 //  - a monthly counter with a hard stop at the cap (resets on the 1st)
 //  - skips identifying while the Spotify plugin says Spotify is playing (that's not the record)
+const crypto = require('crypto');
 const { renderVinyl, vnArtColours } = require('./public/render.js');
 
 const CLIP_SECS = [10, 12];      // choices for the sound sent per request (AudD's standard API uses about 12 s at most)
@@ -44,12 +46,18 @@ function cleanClip(wav) {
   return out;
 }
 
+// ACRCloud project hosts look like identify-eu-west-1.acrcloud.com (keys are only ever sent there).
+const ACR_HOST = /^identify-[a-z0-9-]+\.acrcloud\.com$/;
+const PROVIDERS = ['audd', 'acr', 'both'];   // both: AudD first, ACRCloud when AudD finds nothing
+
 const monthKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 
 module.exports = tg => {
   const s = tg.settings;
   s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true; s.cleanClip ??= true; if (!CLIP_SECS.includes(s.clipSec)) s.clipSec = 12;
   s.usage ??= { month: monthKey(), count: 0 }; s.history ??= [];
+  s.provider ??= 'audd'; s.acr ??= { host: '', key: '', secret: '' }; s.acrCap ??= 300;
+  s.acrUsage ??= { month: monthKey(), count: 0 };
   // Start the listening log with the songs identified before it existed (once).
   if (!s.historyLogged && tg.listening.available) {
     for (const h of [...s.history].reverse()) {
@@ -66,12 +74,87 @@ module.exports = tg => {
   let loudSince = 0, quietSince = 0, avgDb = null, power = 0;  // power: smoothed loudness (linear)
   const artCache = new Map();
 
-  const used = () => { if (s.usage.month !== monthKey()) { s.usage = { month: monthKey(), count: 0 }; tg.save(); } return s.usage.count; };
+  // Monthly request counters, one per service (reset on the 1st).
+  const counter = k => { if (s[k].month !== monthKey()) { s[k] = { month: monthKey(), count: 0 }; tg.save(); } return s[k].count; };
+  const used = () => counter('usage'), acrUsed = () => counter('acrUsage');
+
+  // The recognition services. ask(wav) resolves to { result } (a match in the shape below, or null for
+  // no match) or { error }. A service that answers with an error (bad key, trial used up…) is left out
+  // until listening is switched on again.
+  //   result: { title, artist, album, year, durationMs, posMs, isrc, label, spotify, art, link }
+  const SERVICES = {
+    audd: { name: 'AudD', ready: () => !!s.token, left: () => s.cap - used(), count: () => { s.usage.count++; }, ask: askAudd },
+    acr: { name: 'ACRCloud', ready: () => !!(ACR_HOST.test(s.acr.host) && s.acr.key && s.acr.secret), left: () => s.acrCap - acrUsed(),
+      count: () => { s.acrUsage.count++; }, ask: askAcr },
+  };
+  let failed = {};   // service → its error, for this listening session
+  const chosen = () => (s.provider === 'both' ? ['audd', 'acr'] : [s.provider]).filter(k => SERVICES[k].ready());
+  const usable = () => chosen().filter(k => !failed[k] && SERVICES[k].left() > 0);
+  // Why nothing can be sent (or null if something can).
+  function blocked() {
+    if (!chosen().length) return s.provider === 'audd' ? 'Add your AudD API token first.' : s.provider === 'acr' ? 'Add your ACRCloud keys first.' : 'Add an AudD token or ACRCloud keys first.';
+    if (usable().length) return null;
+    const errs = chosen().filter(k => failed[k]).map(k => `${SERVICES[k].name}: ${failed[k]}`);
+    return errs.length ? errs.join(' · ') : 'This month\'s request limit is used up.';
+  }
+
+  async function askAudd(wav) {
+    const form = new FormData();
+    form.append('api_token', s.token);
+    form.append('return', 'apple_music,spotify');
+    form.append('file', new Blob([wav], { type: 'audio/wav' }), 'clip.wav');
+    const r = await fetch('https://api.audd.io/', { method: 'POST', body: form, signal: AbortSignal.timeout(30000) });
+    const d = await r.json();
+    if (d.status !== 'success') return { error: d.error?.error_message || `error ${r.status}` };
+    const res = d.result;
+    if (!res) return { result: null };
+    const imgs = res.spotify?.album?.images || [];
+    const [m, sec] = String(res.timecode || '').split(':').map(Number);
+    return { result: {
+      title: res.title, artist: res.artist, album: res.album || '', year: (res.release_date || '').slice(0, 4),
+      durationMs: res.spotify?.duration_ms || res.apple_music?.durationInMillis || null,
+      posMs: Number.isFinite(m) && Number.isFinite(sec) ? (m * 60 + sec) * 1000 : null,
+      isrc: res.spotify?.external_ids?.isrc || res.apple_music?.isrc || null, label: res.label || null,
+      spotify: res.spotify?.external_urls?.spotify || null, link: res.song_link || null,
+      art: res.apple_music?.artwork?.url?.replace('{w}', '300').replace('{h}', '300')
+        || (imgs.filter(i => (i.width || 640) >= 128).pop() || imgs[0])?.url || null,
+    } };
+  }
+
+  // ACRCloud's identify API: a signed multipart POST to the project's host.
+  async function askAcr(wav) {
+    const ts = String(Math.floor(Date.now() / 1000));
+    const signature = crypto.createHmac('sha1', s.acr.secret)
+      .update(['POST', '/v1/identify', s.acr.key, 'audio', '1', ts].join('\n')).digest('base64');
+    const form = new FormData();
+    form.append('sample', new Blob([wav], { type: 'audio/wav' }), 'clip.wav');
+    form.append('sample_bytes', String(wav.length));
+    form.append('access_key', s.acr.key);
+    form.append('data_type', 'audio');
+    form.append('signature_version', '1');
+    form.append('signature', signature);
+    form.append('timestamp', ts);
+    const r = await fetch(`https://${s.acr.host}/v1/identify`, { method: 'POST', body: form, signal: AbortSignal.timeout(30000) });
+    const d = await r.json();
+    const code = d.status?.code;
+    if (code === 1001) return { result: null };   // no result
+    if (code !== 0) return { error: `${d.status?.msg || 'error'} (${code ?? r.status})` };
+    const m = d.metadata?.music?.[0];
+    if (!m) return { result: null };
+    const spId = m.external_metadata?.spotify?.track?.id;
+    return { result: {
+      title: m.title, artist: (m.artists || []).map(a => a.name).join(', '), album: m.album?.name || '',
+      year: (m.release_date || '').slice(0, 4), durationMs: m.duration_ms || null, posMs: m.play_offset_ms ?? null,
+      isrc: m.external_ids?.isrc || null, label: m.label || null,
+      spotify: spId ? `https://open.spotify.com/track/${spId}` : null, link: null, art: null,   // art: looked up from Spotify
+    } };
+  }
 
   function turnOn(unit) {
     showOn = unit;
-    if (!s.token) throw Object.assign(new Error('Add your AudD API token first.'), { status: 400 });
-    if (used() >= s.cap) throw Object.assign(new Error(`This month's limit of ${s.cap} requests is used up.`), { status: 400 });
+    failed = {};
+    const why = blocked();
+    if (why) throw Object.assign(new Error(why), { status: 400 });
     active = true; phase = 'waiting'; misses = 0; retryAt = 0; loudSince = quietSince = 0; power = 0;
     until = Date.now() + s.autoOffMin * 60000;
     tg.clear(offTimer);
@@ -128,25 +211,40 @@ module.exports = tg => {
         status = 'Spotify is playing, so not identifying.'; retryAt = Date.now() + RETRY_MS; phase = 'waiting';
         return;
       }
-      if (used() >= s.cap) return turnOff(`Stopped: this month's limit of ${s.cap} requests is used up.`);
+      const why = blocked();
+      if (why) { if (active) return turnOff('Stopped: ' + why); phase = 'off'; status = why; return; }
       status = 'Listening to identify…';
       const raw = await tg.mic.record(s.clipSec * 1000);
       const wav = s.cleanClip ? cleanClip(raw) : raw;
       lastClip = { wav, at: Date.now(), outcome: 'sending…', cleaned: s.cleanClip };
       if (cancelled()) return;
-      s.usage.count++; tg.save();  // counted before sending, so the budget is never exceeded
-      status = 'Identifying…';
-      const form = new FormData();
-      form.append('api_token', s.token);
-      form.append('return', 'apple_music,spotify');
-      form.append('file', new Blob([wav], { type: 'audio/wav' }), 'clip.wav');
-      const r = await fetch('https://api.audd.io/', { method: 'POST', body: form, signal: AbortSignal.timeout(30000) });
-      const d = await r.json();
-      lastClip.outcome = d.status !== 'success' ? 'AudD error: ' + (d.error?.error_message || r.status)
-        : d.result ? `matched: ${d.result.title} — ${d.result.artist}` : 'no match';
+      // Ask each chosen service in turn until one matches.
+      const notes = [];
+      let found = null, answered = false;
+      for (const k of usable()) {
+        const sv = SERVICES[k];
+        sv.count(); tg.save();   // counted before sending, so the budget is never exceeded
+        status = `Identifying (${sv.name})…`;
+        let a;
+        try { a = await sv.ask(wav); }
+        catch (e) { a = { error: e.name === 'TimeoutError' ? 'no answer (timeout)' : e.message, passing: true }; }  // network trouble: try again later
+        if (a.error) {
+          notes.push(`${sv.name}: ${a.error}`); tg.log(`${sv.name}: ${a.error}`);
+          if (!a.passing) failed[k] = a.error;   // the service said no (bad key, trial used up…)
+          continue;
+        }
+        answered = true;
+        if (a.result) { found = { ...a.result, service: sv.name }; notes.push(`${sv.name}: matched ${found.title} — ${found.artist}`); break; }
+        notes.push(`${sv.name}: no match`);
+      }
+      lastClip.outcome = notes.join(' · ') || 'not sent';
       if (cancelled()) return;
-      if (d.status !== 'success') return turnOff('AudD: ' + (d.error?.error_message || `error ${r.status}`));
-      if (!d.result) {
+      if (!answered) {   // every service failed: a refusal stops listening, network trouble retries
+        const msg = notes.join(' · ') || 'Nothing to send to';
+        if (!usable().length) { if (active) return turnOff('Stopped: ' + msg); phase = 'off'; status = msg; return; }
+        throw new Error(msg);
+      }
+      if (!found) {
         if (!active) { phase = 'off'; status = 'Not recognised.'; return; }
         misses++;
         if (misses >= 3) { phase = 'gaveup'; status = 'Couldn\'t identify it 3 times — waiting for the next track.'; }
@@ -154,7 +252,7 @@ module.exports = tg => {
         return;
       }
       misses = 0;
-      matched(d.result);
+      matched(found);
       if (!active) phase = 'off';
       if (manual && s.autoShow && !tg.isLive()) tg.setLive(true, showOn);
     } catch (e) {
@@ -167,22 +265,19 @@ module.exports = tg => {
   }
   function identifyNow(unit) {
     if (!active) showOn = unit;
-    if (!s.token) throw Object.assign(new Error('Add your AudD API token first.'), { status: 400 });
     if (phase === 'identifying') throw Object.assign(new Error('Already identifying — give it a few seconds.'), { status: 409 });
-    if (used() >= s.cap) throw Object.assign(new Error(`This month's limit of ${s.cap} requests is used up.`), { status: 400 });
+    if (!active) failed = {};   // a fresh try
+    const why = blocked();
+    if (why) throw Object.assign(new Error(why), { status: 400 });
     identify(true);
   }
 
+  // res: a match from either service (see SERVICES).
   function matched(res) {
-    const now = Date.now();
-    const imgs = res.spotify?.album?.images || [];
-    const art = res.apple_music?.artwork?.url?.replace('{w}', '300').replace('{h}', '300')
-      || (imgs.filter(i => (i.width || 640) >= 128).pop() || imgs[0])?.url || null;
-    const duration = res.spotify?.duration_ms || res.apple_music?.durationInMillis || null;
-    const [m, sec] = String(res.timecode || '').split(':').map(Number);
-    const pos = Number.isFinite(m) && Number.isFinite(sec) ? (m * 60 + sec) * 1000 : null;
-    const t = { title: res.title, artist: res.artist, album: res.album || '', year: (res.release_date || '').slice(0, 4),
-      art, link: res.song_link || null, spotify: res.spotify?.external_urls?.spotify || null, identifiedAt: now };
+    const now = Date.now(), duration = res.durationMs, pos = res.posMs;
+    const t = { title: res.title, artist: res.artist, album: res.album, year: res.year, art: res.art, link: res.link,
+      spotify: res.spotify, service: res.service, identifiedAt: now };
+    if (!t.art && t.spotify) spotifyArt(t);
     const same = track && track.title === t.title && track.artist === t.artist;
     // Check again around the track's end if no gap is heard (e.g. tracks that run into each other).
     const left = duration && pos != null && duration < 20 * 60000 ? duration - pos - s.clipSec * 1000 : 4 * 60000;
@@ -190,16 +285,25 @@ module.exports = tg => {
     track = t; phase = 'playing';
     status = `${t.title} — ${t.artist}`;
     if (!same) {
-      tg.log(`Identified: ${t.title} — ${t.artist} (${used()}/${s.cap} this month)`);
+      tg.log(`Identified by ${t.service}: ${t.title} — ${t.artist} (AudD ${used()}/${s.cap}, ACRCloud ${acrUsed()}/${s.acrCap} this month)`);
       s.history = [{ title: t.title, artist: t.artist, album: t.album, year: t.year, spotify: t.spotify, at: now }, ...s.history].slice(0, 20);
       // The all-time listening log (data/listening.db).
       try {
         tg.listening.add({ at: now, title: t.title, artist: t.artist, album: t.album, year: t.year, duration_ms: duration,
-          isrc: res.spotify?.external_ids?.isrc || res.apple_music?.isrc || null, spotify_url: t.spotify, label: res.label || null });
+          isrc: res.isrc, spotify_url: t.spotify, label: res.label });
       } catch (e) { tg.log('Listening log:', e.message); }
       tg.save();
       tg.update();
     }
+  }
+
+  // Album art for a match without any (ACRCloud): Spotify's public oEmbed gives the cover.
+  async function spotifyArt(t) {
+    try {
+      const r = await fetch('https://open.spotify.com/oembed?url=' + encodeURIComponent(t.spotify), { signal: AbortSignal.timeout(10000) });
+      const u = r.ok && (await r.json()).thumbnail_url;
+      if (u && /^https:\/\/[a-z0-9.-]+\.(scdn\.co|spotifycdn\.com)\//.test(u) && track === t) { t.art = u; tg.update(); }
+    } catch {}
   }
 
   async function artFor(url) {
@@ -252,10 +356,14 @@ module.exports = tg => {
     if (++pingTick % 15 === 0) for (const res of waveClients) res.write(': ping\n\n');  // keep idle connections open
   });
 
-  const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the AudD token from the computer running the controller, or one it trusts.'), { status: 403 }); };
+  const localOnly = ctx => { if (!ctx.local) throw Object.assign(new Error('Change the keys from the computer running the controller, or one it trusts.'), { status: 403 }); };
+  // (The keys themselves never go to the page; only whether each service is set up.)
   const state = () => ({
-    active, phase, status, until: active ? until : null, hasToken: !!s.token,
-    used: used(), cap: s.cap, autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec,
+    active, phase, status, until: active ? until : null,
+    provider: s.provider, auddSet: SERVICES.audd.ready(), acrSet: SERVICES.acr.ready(), acrHost: s.acr.host,
+    hasToken: chosen().length > 0,   // the chosen service(s) can be used
+    used: used(), cap: s.cap, acrUsed: acrUsed(), acrCap: s.acrCap,
+    autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec,
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link },
     history: s.history.slice(0, 8),
     lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome, cleaned: lastClip.cleaned },
@@ -271,7 +379,16 @@ module.exports = tg => {
       'POST /now': ctx => { identifyNow(ctx.unit); return state(); },
       'POST /options': ctx => {
         const b = ctx.body || {};
-        if (typeof b.token === 'string') { localOnly(ctx); s.token = b.token.trim(); }
+        if (typeof b.token === 'string') { localOnly(ctx); s.token = b.token.trim(); delete failed.audd; }
+        if (b.acr && typeof b.acr === 'object') {   // { host, key, secret }, or {} to remove
+          localOnly(ctx);
+          const host = String(b.acr.host || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').toLowerCase();
+          if (host && !ACR_HOST.test(host)) throw Object.assign(new Error('The ACRCloud host looks like identify-eu-west-1.acrcloud.com (from your project page).'), { status: 400 });
+          s.acr = { host, key: String(b.acr.key || '').trim(), secret: String(b.acr.secret || '').trim() };
+          delete failed.acr;
+        }
+        if (PROVIDERS.includes(b.provider)) { s.provider = b.provider; failed = {}; }
+        if (Number.isFinite(b.acrCap) && b.acrCap >= 0) s.acrCap = Math.round(b.acrCap);
         if (Number.isFinite(b.cap) && b.cap >= 0) s.cap = Math.round(b.cap);
         if (Number.isFinite(b.autoOffMin) && b.autoOffMin >= 5 && b.autoOffMin <= 720) s.autoOffMin = Math.round(b.autoOffMin);
         if (typeof b.autoShow === 'boolean') s.autoShow = b.autoShow;

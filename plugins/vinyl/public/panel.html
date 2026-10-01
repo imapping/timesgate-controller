@@ -1,9 +1,28 @@
+<div class="row">
+  <label for="vnProvider">Service</label>
+  <select id="vnProvider" title="Which music recognition service identifies the clips">
+    <option value="audd">AudD</option><option value="acr">ACRCloud</option><option value="both">AudD, then ACRCloud if no match</option>
+  </select>
+  <span id="vnKeys" class="hint" style="margin:0"></span>
+  <button id="vnChangeKeys" style="display:none" title="Enter new keys (from the controller's computer or a trusted one)">Change keys</button>
+</div>
 <div id="vnSetup" hidden>
-  <p class="hint" style="margin-top:0">Needs an API token from <a href="https://dashboard.audd.io" target="_blank" rel="noopener">dashboard.audd.io</a>.
+  <p class="hint" style="margin-top:0">AudD needs an API token from <a href="https://dashboard.audd.io" target="_blank" rel="noopener">dashboard.audd.io</a>.
     Paste it here from your computer (the one running the controller, or one it trusts; not a phone):</p>
   <div class="row">
     <input type="password" id="vnToken" placeholder="AudD API token" style="width:300px" autocomplete="off" spellcheck="false">
     <button id="vnSaveToken">Save token</button>
+  </div>
+</div>
+<div id="vnAcrSetup" hidden>
+  <p class="hint" style="margin-top:0">ACRCloud: in the <a href="https://console.acrcloud.com" target="_blank" rel="noopener">ACRCloud console</a>, create an
+    <b>Audio &amp; Video Recognition</b> project (audio source: <b>Recorded Audio</b>, bucket: <b>ACRCloud Music</b>), then paste its
+    host, access key and access secret here from your computer (the one running the controller, or one it trusts; not a phone):</p>
+  <div class="row">
+    <input type="text" id="vnAcrHost" placeholder="identify-eu-west-1.acrcloud.com" style="width:260px" autocomplete="off" spellcheck="false">
+    <input type="password" id="vnAcrKey" placeholder="Access key" style="width:200px" autocomplete="off" spellcheck="false">
+    <input type="password" id="vnAcrSecret" placeholder="Access secret" style="width:200px" autocomplete="off" spellcheck="false">
+    <button id="vnSaveAcr">Save keys</button>
   </div>
 </div>
 <div class="row">
@@ -12,7 +31,7 @@
   <span id="vnStatus" style="font-weight:600"></span>
 </div>
 <div id="vnWaveBox" hidden style="margin:2px 0 10px">
-  <canvas id="vnWave" style="width:100%;height:84px;display:block;border-radius:8px;background:var(--field)" title="The last 9 seconds. Orange: the clip being sent to AudD."></canvas>
+  <canvas id="vnWave" style="width:100%;height:84px;display:block;border-radius:8px;background:var(--field)" title="The last 9 seconds. Orange: the clip being recorded to identify."></canvas>
   <canvas id="vnScope" style="width:100%;height:48px;display:block;margin-top:6px;border-radius:8px;background:var(--field)" title="The sound right now"></canvas>
   <div id="vnWaveInfo" class="hint" style="margin-top:4px"></div>
 </div>
@@ -20,15 +39,16 @@
   <span id="vnUsage" class="hint" style="margin:0"></span>
 </div>
 <div class="row" id="vnClipRow" style="display:none">
-  <span class="hint" style="margin:0">Last clip sent to AudD <span id="vnClipInfo"></span> · <a id="vnClipLink" href="/api/vinyl/clip" target="_blank" rel="noopener" style="color:inherit">listen</a> (from the controller's computer or a trusted one)</span>
+  <span class="hint" style="margin:0">Last clip sent <span id="vnClipInfo"></span> · <a id="vnClipLink" href="/api/vinyl/clip" target="_blank" rel="noopener" style="color:inherit">listen</a> (from the controller's computer or a trusted one)</span>
 </div>
 <div class="row">
   <label>Switch off after</label>
   <select id="vnAutoOff"><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select>
-  <label>Monthly limit</label><input type="number" id="vnCap" min="0" max="100000" style="width:90px">
+  <label>Monthly limit: AudD</label><input type="number" id="vnCap" min="0" max="100000" style="width:80px">
+  <label>ACRCloud</label><input type="number" id="vnAcrCap" min="0" max="100000" style="width:80px">
   <label><input type="checkbox" id="vnAutoShow"> Show on the Times Gate when I start</label>
   <label>Clip</label>
-  <select id="vnClipSec" title="How much sound is sent to AudD for each try (it uses about 12 seconds at most). Each try is one request."><option value="10">10 s</option><option value="12">12 s</option></select>
+  <select id="vnClipSec" title="How much sound is sent for each try (AudD uses about 12 seconds at most). Each try is one request per service asked."><option value="10">10 s</option><option value="12">12 s</option></select>
   <label title="Cuts bass boom, turntable rumble and mains hum below 120 Hz, lifts voices a little, and evens out the level before sending. Helps with big speakers."><input type="checkbox" id="vnClean"> Clean up clips (cut bass rumble)</label>
 </div>
 <div data-tg-controls></div>

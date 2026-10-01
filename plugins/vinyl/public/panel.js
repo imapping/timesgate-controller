@@ -2,7 +2,7 @@
 (() => {
   const p = TG.plugin('vinyl');
   const $p = sel => p.el(sel);
-  let st = null;
+  let st = null, changingKeys = false;   // changingKeys: showing the key fields to replace saved keys
   const art = new Map();
 
   async function loadArt(url) {
@@ -25,14 +25,22 @@
   function apply(s) {
     const firstTrack = !st || (s.track && (!st.track || st.track.title !== s.track.title));
     st = s;
-    $p('#vnSetup').hidden = s.hasToken;
-    $p('#vnTokenNote').textContent = s.hasToken ? 'To change the AudD token, open this page on the computer running the controller, or one it trusts.' : '';
+    // Which service, and whether each one it needs is set up (the keys stay in the server).
+    const usesAudd = s.provider !== 'acr', usesAcr = s.provider !== 'audd';
+    if (document.activeElement !== $p('#vnProvider')) $p('#vnProvider').value = s.provider;
+    $p('#vnSetup').hidden = !(usesAudd && (!s.auddSet || changingKeys));
+    $p('#vnAcrSetup').hidden = !(usesAcr && (!s.acrSet || changingKeys));
+    $p('#vnKeys').textContent = [usesAudd && `AudD ${s.auddSet ? '✓' : '(not set up)'}`,
+      usesAcr && `ACRCloud ${s.acrSet ? '✓ ' + s.acrHost : '(not set up)'}`].filter(Boolean).join(' · ');
+    $p('#vnChangeKeys').style.display = (usesAudd && s.auddSet) || (usesAcr && s.acrSet) ? '' : 'none';
+    $p('#vnTokenNote').textContent = s.hasToken ? 'To change keys, open this page on the computer running the controller, or one it trusts.' : '';
     $p('#vnToggle').textContent = s.active ? 'Stop listening' : 'Start listening';
     $p('#vnToggle').disabled = !s.hasToken;
     $p('#vnNow').disabled = !s.hasToken || s.phase === 'identifying';
     const off = s.active && s.until ? ` (until ${new Date(s.until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})` : '';
     $p('#vnStatus').textContent = s.status + off;
-    $p('#vnUsage').textContent = `${s.used} of ${s.cap} requests used this month.`
+    $p('#vnUsage').textContent = [usesAudd && `AudD: ${s.used} of ${s.cap}`, usesAcr && `ACRCloud: ${s.acrUsed} of ${s.acrCap}`]
+      .filter(Boolean).join(' · ') + ' requests used this month.'
       + (s.logged != null ? ` Listening log: ${s.logged.toLocaleString()} plays saved.` : '');
     // The last clip sent to AudD, to hear what it heard.
     $p('#vnClipRow').style.display = s.lastClip ? '' : 'none';
@@ -41,6 +49,7 @@
       $p('#vnClipLink').href = '/api/vinyl/clip?t=' + s.lastClip.at;
     }
     if (document.activeElement !== $p('#vnCap')) $p('#vnCap').value = s.cap;
+    if (document.activeElement !== $p('#vnAcrCap')) $p('#vnAcrCap').value = s.acrCap;
     $p('#vnAutoOff').value = s.autoOffMin;
     $p('#vnAutoShow').checked = s.autoShow;
     $p('#vnClean').checked = s.cleanClip;
@@ -128,7 +137,7 @@
       q.strokeStyle = color; q.lineWidth = 2 * r; q.lineJoin = q.lineCap = 'round'; q.stroke();
     }
     $p('#vnWaveInfo').textContent = m.db > -98
-      ? `${m.phase === 'identifying' ? 'Recording a clip for AudD (orange)' : 'Listening'} · ${m.db} dB`
+      ? `${m.phase === 'identifying' ? 'Recording a clip to identify (orange)' : 'Listening'} · ${m.db} dB`
       : 'Microphone off';
   }
 
@@ -141,7 +150,14 @@
       try { apply(await (await fetch('/api/engine/state')).json().then(s => s.plugins.vinyl)); } catch {}
     }
   };
-  $p('#vnSaveToken').onclick = () => { call('options', { token: $p('#vnToken').value }); $p('#vnToken').value = ''; };
+  $p('#vnChangeKeys').onclick = () => { changingKeys = !changingKeys; if (st) apply(st); };
+  $p('#vnProvider').onchange = e => call('options', { provider: e.target.value });
+  $p('#vnSaveToken').onclick = async () => { await call('options', { token: $p('#vnToken').value }); $p('#vnToken').value = ''; changingKeys = false; if (st) apply(st); };
+  $p('#vnSaveAcr').onclick = async () => {
+    await call('options', { acr: { host: $p('#vnAcrHost').value, key: $p('#vnAcrKey').value, secret: $p('#vnAcrSecret').value } });
+    $p('#vnAcrKey').value = $p('#vnAcrSecret').value = ''; changingKeys = false; if (st) apply(st);
+  };
+  $p('#vnAcrCap').onchange = e => call('options', { acrCap: Number(e.target.value) });
   $p('#vnAutoOff').onchange = e => call('options', { autoOffMin: Number(e.target.value) });
   $p('#vnCap').onchange = e => call('options', { cap: Number(e.target.value) });
   $p('#vnAutoShow').onchange = e => call('options', { autoShow: e.target.checked });
