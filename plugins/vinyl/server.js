@@ -8,7 +8,7 @@
 //  - skips identifying while the Spotify plugin says Spotify is playing (that's not the record)
 const { renderVinyl, vnArtColours } = require('./public/render.js');
 
-const CLIP_SECS = [10, 15, 20];  // choices for the sound sent per request (longer can match better through a room)
+const CLIP_SECS = [10, 12];      // choices for the sound sent per request (AudD's standard API uses about 12 s at most)
 const MUSIC_MS = 3000;           // music this long before trying
 const GAP_MS = 1200;             // quiet this long = gap between tracks
 const MIN_TRACK_MS = 45000;      // ignore "gaps" this soon after a match (quiet passages)
@@ -48,7 +48,7 @@ const monthKey = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 
 module.exports = tg => {
   const s = tg.settings;
-  s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true; s.cleanClip ??= true; s.clipSec ??= 10;
+  s.token ??= ''; s.cap ??= 1000; s.autoOffMin ??= 60; s.autoShow ??= true; s.cleanClip ??= true; if (!CLIP_SECS.includes(s.clipSec)) s.clipSec = 12;
   s.usage ??= { month: monthKey(), count: 0 }; s.history ??= [];
   // Start the listening log with the songs identified before it existed (once).
   if (!s.historyLogged && tg.listening.available) {

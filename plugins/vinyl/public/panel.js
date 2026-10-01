@@ -44,7 +44,7 @@
     $p('#vnAutoOff').value = s.autoOffMin;
     $p('#vnAutoShow').checked = s.autoShow;
     $p('#vnClean').checked = s.cleanClip;
-    $p('#vnClipSec').value = String(s.clipSec || 10);
+    $p('#vnClipSec').value = String(s.clipSec || 12);
     const h = $p('#vnHistory');
     h.innerHTML = s.history.length ? '<table class="wx"></table>' : '';
     for (const t of s.history) {
@@ -136,7 +136,7 @@
   // Poll faster while it's listening, so "Listening… / Identifying…" and the result show promptly.
   $p('#vnNow').onclick = async () => {
     await call('now', {});
-    for (let i = 0; i < 40 && st && st.phase === 'identifying'; i++) {  // up to a 20 s clip plus sending
+    for (let i = 0; i < 40 && st && st.phase === 'identifying'; i++) {  // a 12 s clip plus sending
       await new Promise(r => setTimeout(r, 1000));
       try { apply(await (await fetch('/api/engine/state')).json().then(s => s.plugins.vinyl)); } catch {}
     }

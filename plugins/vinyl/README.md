@@ -11,7 +11,7 @@ Setup: get an API token from dashboard.audd.io and paste it into the card on the
 How it keeps to the monthly budget (1,000 requests by default, adjustable):
 - **Only on request:** press **Start listening**. It switches itself off after the time you choose,
   1 hour by default.
-- **One request per track:** it sends a clip (10 seconds, or 15 or 20 if set in the card) once music has been playing for 3 seconds. Clips are cleaned up first (bass rumble and hum cut, voices lifted), which helps with big speakers.
+- **One request per track:** it sends a 12-second clip (the most AudD's standard service uses; 10 seconds can be chosen in the card) once music has been playing for 3 seconds. Clips are cleaned up first (bass rumble and hum cut, voices lifted), which helps with big speakers.
   After a match, it waits for the quiet gap before the next track. If it doesn't hear a gap, it
   checks again around the track's expected end.
 - **No match:** it tries again in 30 s. After 3 misses in a row it waits for the next track.
