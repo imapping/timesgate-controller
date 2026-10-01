@@ -52,6 +52,9 @@ not the Times Gate.
 
 ![The Vinyl card showing a live waveform while listening to a record](docs/screenshots/vinyl-waveform.png)
 
+The card also has the input controls: which microphone or input to use, and **Listen live** with a volume slider, to hear the
+record in this browser (the same controls as the Microphone card).
+
 Its settings: the recognition service (AudD, ACRCloud, or AudD with ACRCloud as a backup) and monthly
 limits, when to switch off, and for records, a **turntable speed** correction. A turntable that runs
 even 2% fast isn't recognised, so you enter its measured speed and clips are corrected before they're sent.

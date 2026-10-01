@@ -1,6 +1,6 @@
 // Plugins on the page: TG, the API a plugin's panel script uses (see PLUGINS.md), the loader that
 // adds each enabled plugin's panel, and the Plugins section (install / turn on-off / remove).
-// Relies on globals from index.html ($, log, engineCall, onEngineState, lastContent) and anim.js (playTiles).
+// Relies on globals from index.html ($, log, engineCall, onEngineState, lastContent, micPanel) and anim.js (playTiles).
 
 const TG = (() => {
   const reg = {};
@@ -81,6 +81,7 @@ function buildSection(pl, html) {
   sec.className = 'wide'; sec.id = 'plugin-' + pl.id;
   sec.innerHTML = '<h2></h2>' + html;
   sec.querySelector('h2').textContent = pl.name;
+  sec.querySelectorAll('[data-tg-mic]').forEach(micPanel);   // the microphone controls, for plugins that listen
   if (pl.feed) {
     const row = document.createElement('div');
     row.className = 'row pl-controls'; row.style.marginTop = '10px';

@@ -69,3 +69,9 @@ How it keeps to the monthly budgets (AudD 1,000 and ACRCloud 300 requests by def
   switch listening on again, and the card shows why.
 
 Only the clips are sent to the services. Nothing is saved to disk: the last clip is kept in memory so you can listen to what was sent and each service's answer (the card's "listen" link, from a trusted computer).
+
+## Input and live listening
+
+The card has its own copy of the Microphone card's controls: which input to use, a 10-second test,
+**Listen live** with a volume slider, and the direct-connection setting. Both copies show and change
+the same thing. The volume and quality are remembered in each browser.

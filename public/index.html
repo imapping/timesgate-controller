@@ -269,20 +269,7 @@
 
   <section>
     <h2>Microphone</h2>
-    <div class="row">
-      <select id="micDevice" class="grow" aria-label="Microphone"><option value="">Loading…</option></select>
-      <button id="micTest">Test 10 s</button>
-    </div>
-    <div class="row"><span id="micStatus" class="hint" style="margin:0"></span></div>
-    <div class="row">
-      <button id="micLive" title="Hear what this input hears, in this browser">Listen live</button>
-      <label title="Stereo at 44.1 kHz (about 176 KB a second). Untick for a lighter mono stream at 22 kHz."><input type="checkbox" id="micHq" checked> High quality (stereo)</label>
-      <span id="micLiveInfo" class="hint" style="margin:0"></span>
-    </div>
-    <div class="row">
-      <label title="A room microphone can only be listened to from the controller's computer or one it trusts. Tick this for a turntable or line-in so phones and other computers can listen too. Remembered for this input only."><input type="checkbox" id="micShared">
-        This is a direct connection (a turntable or line-in), not a microphone: let any device on the network listen live</label>
-    </div>
+    <div id="micCard"></div>
     <p class="hint">Plugins such as the music visualizer listen through this. It only runs while one of them needs it, and nothing is recorded to disk.</p>
   </section>
 
@@ -964,57 +951,87 @@ $('sendRaw').onclick = () => {
 };
 
 // ---------- microphone (mic.js in the server) ----------
+// The controls are built by micPanel(), so they can appear in several places: the Microphone card,
+// and any plugin card with <div data-tg-mic></div> in its panel. Every copy shows the same thing.
+const MIC_HTML = `
+  <div class="row">
+    <select class="mic-device grow" aria-label="Microphone or input"><option value="">Loading…</option></select>
+    <button class="mic-test">Test 10 s</button>
+  </div>
+  <div class="row"><span class="mic-status hint" style="margin:0"></span></div>
+  <div class="row">
+    <button class="mic-live" title="Hear what this input hears, in this browser">Listen live</button>
+    <label class="mic-vol-box" title="Volume of live listening in this browser">Volume
+      <input type="range" class="mic-vol" min="0" max="100" style="flex:none;width:130px" aria-label="Live listening volume"></label>
+    <label title="Stereo at 44.1 kHz (about 176 KB a second). Untick for a lighter mono stream at 22 kHz."><input type="checkbox" class="mic-hq"> High quality (stereo)</label>
+    <span class="mic-live-info hint" style="margin:0"></span>
+  </div>
+  <div class="row">
+    <label title="A room microphone can only be listened to from the controller's computer or one it trusts. Tick this for a turntable or line-in so phones and other computers can listen too. Remembered for this input only."><input type="checkbox" class="mic-shared">
+      This is a direct connection (a turntable or line-in), not a microphone: let any device on the network listen live</label>
+  </div>`;
+const micPanels = [];          // every copy of the controls on the page
+let micState = null, micDevices = null, micLiveText = '';
+let micLive = null;            // { ctx, ctrl, gain } while listening
+// Remembered in this browser: live listening volume (0–100) and quality.
+let micVol = 100, micHq = true;
+try {
+  const v = Number(localStorage.getItem('micVol'));
+  if (localStorage.getItem('micVol') !== null && v >= 0 && v <= 100) micVol = v;
+  micHq = localStorage.getItem('micHq') !== '0';
+} catch {}
+const micGain = () => (micVol / 100) ** 2;   // squared, so the slider feels even to the ear
+
 async function micCall(body) {
   const r = await fetch('/api/mic', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
   return r.json();
 }
+function micFillDevices(root) {
+  const sel = root.querySelector('.mic-device');
+  if (!micDevices) return;
+  sel.innerHTML = micDevices.length ? '' : '<option value="">No microphones found</option>';
+  for (const d of micDevices) { const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; sel.append(o); }
+}
+// Shows the mic's state and the live-listening state in every copy of the controls.
 function showMic(s) {
+  if (s) micState = s; else s = micState;
+  if (!s) return;
   const bar = '█'.repeat(Math.round((s.level || 0) * 12)).padEnd(12, '░');
-  $('micStatus').textContent = !s.tool ? 'No capture tool found (install ffmpeg, or alsa-utils on a Pi).'
+  const status = !s.tool ? 'No capture tool found (install ffmpeg, or alsa-utils on a Pi).'
     : s.error ? 'Problem: ' + s.error
     : s.running ? `${bar}  ${s.db} dB · used by ${s.users.join(', ') || 'a recording'}`
     : 'Off — nothing is using it.';
-  if (s.device && $('micDevice').value !== s.device && [...$('micDevice').options].some(o => o.value === s.device)) $('micDevice').value = s.device;
   // Who may listen live: trusted computers always; everyone if this input is marked as a direct connection.
-  if ('shared' in s) {
-    $('micShared').checked = s.shared;
-    $('micShared').disabled = !s.local;   // only a trusted computer can change it
-    $('micLive').disabled = !s.local && !s.shared && !micLive;
-    if ($('micLive').disabled) $('micLiveInfo').textContent = 'Live listening is only for the controller\u2019s computer, unless this input is marked as a direct connection there.';
-    else if (!micLive && /only for the controller/.test($('micLiveInfo').textContent)) $('micLiveInfo').textContent = '';
+  const barred = 'shared' in s && !s.local && !s.shared && !micLive;
+  for (const root of micPanels) {
+    const q = c => root.querySelector(c);
+    q('.mic-status').textContent = status;
+    const sel = q('.mic-device');
+    if (s.device && sel.value !== s.device && document.activeElement !== sel && [...sel.options].some(o => o.value === s.device)) sel.value = s.device;
+    if ('shared' in s) { q('.mic-shared').checked = s.shared; q('.mic-shared').disabled = !s.local; }   // only a trusted computer can change it
+    q('.mic-live').disabled = barred;
+    q('.mic-live').textContent = micLive ? 'Stop listening' : 'Listen live';
+    q('.mic-live-info').textContent = barred ? 'Live listening is only for the controller\u2019s computer, unless this input is marked as a direct connection there.' : micLiveText;
+    q('.mic-hq').checked = micHq;
+    if (document.activeElement !== q('.mic-vol')) q('.mic-vol').value = micVol;
   }
 }
-(async () => {
-  try {
-    const list = await (await fetch('/api/mic/devices')).json();
-    $('micDevice').innerHTML = list.length ? '' : '<option value="">No microphones found</option>';
-    for (const d of list) { const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; $('micDevice').append(o); }
-    showMic(await micCall());
-  } catch {}
-})();
-$('micDevice').onchange = async () => showMic(await micCall({ device: $('micDevice').value }));
-$('micTest').onclick = async () => showMic(await micCall({ test: 10 }));
-$('micShared').onchange = async e => {
-  const on = e.target.checked;
-  if (on && !confirm('Anyone on your network will be able to listen to this input live.\n\nOnly do this for a direct connection such as a turntable or line-in, not for a microphone in a room.')) { e.target.checked = false; return; }
-  const r = await micCall({ shared: on });
-  if (r.error) { log('Microphone: ' + r.error, 'e'); e.target.checked = !on; } else showMic(r);
-};
-// Listen live: the server streams the mic as a never-ending WAV (trusted computers only). The page
-// reads it as it arrives and plays it through Web Audio, about a quarter of a second behind.
-// (An <audio> element buffers endless WAVs unpredictably, so this does the playing itself.)
-let micLive = null;   // { ctx, ctrl } while listening
+function micLiveInfo(text) { micLiveText = text || ''; showMic(); }
 function micLiveStop(msg) {
   if (micLive) { micLive.ctrl.abort(); micLive.ctx.close().catch(() => {}); micLive = null; }   // closing the stream lets the mic stop
-  $('micLive').textContent = 'Listen live'; $('micLiveInfo').textContent = msg || '';
+  micLiveInfo(msg);
 }
-$('micLive').onclick = async () => {
+// Listen live: the server streams the mic as a never-ending WAV (trusted computers, or anyone for a
+// direct connection). The page reads it as it arrives and plays it through Web Audio, about a quarter
+// of a second behind. (An <audio> element buffers endless WAVs unpredictably, so this does the playing itself.)
+async function micLiveToggle() {
   if (micLive) return micLiveStop();
-  const live = micLive = { ctx: new AudioContext(), ctrl: new AbortController() };
-  $('micLive').textContent = 'Stop listening'; $('micLiveInfo').textContent = 'Connecting…';
+  const ctx = new AudioContext(), gain = ctx.createGain();
+  gain.gain.value = micGain(); gain.connect(ctx.destination);
+  const live = micLive = { ctx, gain, ctrl: new AbortController() };
+  micLiveInfo('Connecting…');
   try {
-    const hq = $('micHq').checked;
-    const r = await fetch('/api/mic/stream' + (hq ? '?hq' : ''), { signal: live.ctrl.signal });
+    const r = await fetch('/api/mic/stream' + (micHq ? '?hq' : ''), { signal: live.ctrl.signal });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Server error ' + r.status);
     const reader = r.body.getReader();
     let rest = new Uint8Array(0), next = 0, rate = 0, chans = 0;   // rate and channels come from the WAV header
@@ -1028,7 +1045,7 @@ $('micLive').onclick = async () => {
         const h = new DataView(bytes.buffer, bytes.byteOffset, 44);
         chans = h.getUint16(22, true); rate = h.getUint32(24, true);
         bytes = bytes.subarray(44);
-        $('micLiveInfo').textContent = `Live (${chans === 2 ? 'stereo' : 'mono'}, ${(rate / 1000).toFixed(rate % 1000 ? 1 : 0)} kHz).`;
+        micLiveInfo(`Live (${chans === 2 ? 'stereo' : 'mono'}, ${(rate / 1000).toFixed(rate % 1000 ? 1 : 0)} kHz).`);
       }
       const n = Math.floor(bytes.length / (chans * 2));   // whole frames
       rest = bytes.slice(n * chans * 2);
@@ -1039,7 +1056,7 @@ $('micLive').onclick = async () => {
         for (let i = 0; i < n; i++) ch[i] = view.getInt16((i * chans + c) * 2, true) / 32768;
       }
       const src = live.ctx.createBufferSource();
-      src.buffer = buf; src.connect(live.ctx.destination);
+      src.buffer = buf; src.connect(live.gain);
       // Queue each piece after the last; (re)start with a small cushion if we ran dry or fell behind.
       const now = live.ctx.currentTime;
       if (next < now + 0.03 || next > now + 1) next = now + 0.25;
@@ -1049,14 +1066,45 @@ $('micLive').onclick = async () => {
   } catch (e) {
     if (micLive === live) micLiveStop(e.name === 'AbortError' ? '' : "Couldn't listen: " + e.message);
   }
-};
+}
+// Builds the controls inside root (the Microphone card, or a plugin's <div data-tg-mic>).
+function micPanel(root) {
+  root.innerHTML = MIC_HTML;
+  const q = c => root.querySelector(c);
+  micPanels.push(root);
+  micFillDevices(root);
+  q('.mic-device').onchange = async e => showMic(await micCall({ device: e.target.value }));
+  q('.mic-test').onclick = async () => showMic(await micCall({ test: 10 }));
+  q('.mic-shared').onchange = async e => {
+    const on = e.target.checked;
+    if (on && !confirm('Anyone on your network will be able to listen to this input live.\n\nOnly do this for a direct connection such as a turntable or line-in, not for a microphone in a room.')) { e.target.checked = false; return; }
+    const r = await micCall({ shared: on });
+    if (r.error) { log('Microphone: ' + r.error, 'e'); e.target.checked = !on; } else showMic(r);
+  };
+  q('.mic-live').onclick = () => micLiveToggle();
+  q('.mic-vol').oninput = e => {
+    micVol = Number(e.target.value);
+    try { localStorage.setItem('micVol', String(micVol)); } catch {}
+    if (micLive) micLive.gain.gain.setTargetAtTime(micGain(), micLive.ctx.currentTime, 0.02);   // (eased, so it doesn't click)
+    for (const p of micPanels) if (p !== root) p.querySelector('.mic-vol').value = micVol;
+  };
+  // Changing the quality while listening reconnects.
+  q('.mic-hq').onchange = e => {
+    micHq = e.target.checked;
+    try { localStorage.setItem('micHq', micHq ? '1' : '0'); } catch {}
+    if (micLive) { micLiveStop(); micLiveToggle(); } else showMic();
+  };
+  showMic();
+}
+micPanel($('micCard'));
+(async () => {
+  try {
+    micDevices = await (await fetch('/api/mic/devices')).json();
+    micPanels.forEach(micFillDevices);
+    showMic(await micCall());
+  } catch {}
+})();
 setInterval(async () => { try { showMic(await micCall()); } catch {} }, 1000);
-// Live listening quality is remembered in this browser; changing it while listening reconnects.
-try { if (localStorage.getItem('micHq') === '0') $('micHq').checked = false; } catch {}
-$('micHq').onchange = () => {
-  try { localStorage.setItem('micHq', $('micHq').checked ? '1' : '0'); } catch {}
-  if (micLive) { micLiveStop(); $('micLive').click(); }
-};
 
 // ---------- appearance ----------
 // Auto follows the device; Light and Dark are remembered in this browser (and used by the plugin guide too).

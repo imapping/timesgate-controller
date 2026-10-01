@@ -212,7 +212,8 @@ both) and plain JavaScript, and end with
 Page scripts share one global scope with every other plugin, so **prefix top-level names**
 (`helloRender`, `WX_SPEED`…).
 
-**panel.html** is the card's content (the page adds the heading). Put `<div data-tg-controls></div>`
+**panel.html** is the card's content (the page adds the heading). A plugin that listens can put `<div data-tg-mic></div>`
+in it for a copy of the Microphone card's controls (input, test, live listening and volume). Put `<div data-tg-controls></div>`
 where the standard **Preview / Show on Times Gate / Keep it updated** row should go; without it the
 row goes at the end. That row appears only for plugins with `render`. Give element ids a prefix too
 (`helloMsg`), since they share the page.
