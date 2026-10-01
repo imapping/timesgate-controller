@@ -77,7 +77,7 @@ reports show top artists and songs, plays over time and when you listen, on the 
 
 **Plugins:** turn them on or off, move them up or down the page, read their docs, or install new ones from a GitHub link.
 
-![The Plugins card](docs/screenshots/plugins.png)
+![The Plugins card, with up and down buttons to order the plugins](docs/screenshots/plugins.png)
 
 **This computer:** gauges for how hard the controller's computer is working, here a Raspberry Pi 4
 streaming stereo audio and listening for records.
