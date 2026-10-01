@@ -66,6 +66,11 @@ even 2% fast isn't recognised, so you enter its measured speed and clips are cor
 
 ![The Plugins card](docs/screenshots/plugins.png)
 
+**This computer:** gauges for how hard the controller's computer is working, here a Raspberry Pi 4
+streaming stereo audio and listening for records.
+
+<img src="docs/screenshots/gauges.png" alt="Gauges for CPU, the controller, temperature and memory on a Raspberry Pi" width="330">
+
 It works on a phone too:
 
 <img src="docs/screenshots/mobile.png" alt="The controller on a phone" width="300">
