@@ -89,6 +89,9 @@ module.exports = tg => {
   // A side chosen by hand from the Discogs collection: its tracks name what plays, in order, without
   // a service. { id, album, artist, year, cover, link, side, tracks: [{ pos, where, title, artist, dur }], index }
   // index: the track the next music will be.
+  // The same song, whatever the edition: "Somebody To Love (Remastered 2011)" is "Somebody To Love (1993 Digital Remaster)".
+  // (A service can name two clips of one track differently.)
+  const sameSong = (a, b) => discogsFor.normTitle(a.title) === discogsFor.normTitle(b.title) && discogsFor.normArtist(a.artist) === discogsFor.normArtist(b.artist);
   let cue = null, cueEnded = false;   // cueEnded: the chosen side ran out while listening
   const canGo = () => canOwn() || !!cue;
   // Start the listening log with the songs identified before it existed (once).
@@ -250,7 +253,6 @@ module.exports = tg => {
   //    quiet passage and the recording carries on.
   //  - Sound that was identified as two different tracks with no gap between isn't learned.
   let seg = null;   // { chunks, n, label, mixed, endAt, endTime, resumed }: n, endAt, resumed in samples
-  const sameSong = (a, b) => a.title === b.title && a.artist === b.artist;
   function segAdd(f, quiet, gap, now) {
     if (!s.learn || !prints.available() || !f.samples) { seg = null; return; }
     if (!seg) { if (quiet) return; seg = { chunks: [], n: 0, label: null, mixed: false, endAt: null, endTime: 0, resumed: null }; }
@@ -434,7 +436,8 @@ module.exports = tg => {
     const t = { title: tidy(res.title), artist: tidy(res.artist), album: tidy(res.album), year: res.year, art: res.art, link: res.link,
       spotify: res.spotify, service: res.service, own: !!res.own, picked: !!res.picked, isrc: res.isrc, label: res.label, identifiedAt: now,
       expectMs: res.picked && res.durationMs ? res.durationMs / speedRatio() : null };   // how long a chosen track should last on this deck
-    const same = track && track.title === t.title && track.artist === t.artist;
+    const same = !!track && sameSong(track, t);
+    if (same && !res.fix) { t.title = track.title; t.artist = track.artist; }   // (keep the name it already has)
     // The record in the Discogs collection with this song: its album, year and cover replace the
     // service's (which often names a compilation), and it says where the song is on the record.
     const own = res.rec || (same ? null : discogs.match(t.title, t.artist, now));
