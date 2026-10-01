@@ -178,8 +178,16 @@ module.exports = (tg, s) => {
   tg.after(5000, check);
   tg.every(3600 * 1000, check);
 
+  // For checking why a song wasn't matched: the saved records whose artist or album contains the text.
+  function find(q) {
+    const k = words(fold(q));
+    if (k.length < 2) return [];
+    return Object.values(cache.releases).filter(r => words(fold(r.artists.join(' ') + ' ' + r.title)).includes(k)).slice(0, 20)
+      .map(r => ({ id: r.id, title: r.title, year: r.year, artists: r.artists, formats: r.formats, tracks: r.tracks ? r.tracks.map(t => `${t.pos} ${t.title}`) : null, fails: r.fails }));
+  }
+
   return {
-    match, configure, wherePos,
+    match, configure, wherePos, find,
     refresh: () => { if (!ready()) throw Object.assign(new Error('Add your Discogs username and token first.'), { status: 400 }); sync().catch(() => {}); },
     // (The token never goes to the page.)
     state: () => {

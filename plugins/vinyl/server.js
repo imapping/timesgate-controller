@@ -465,6 +465,8 @@ module.exports = tg => {
       },
       // Read the Discogs collection again now (it's also checked once a day).
       'POST /discogs': () => { discogs.refresh(); return state(); },
+      // ?q=text: the records in the saved collection whose artist or album contains it (trusted computers only).
+      'GET /discogs/find': ctx => { localOnly(ctx); return { records: discogs.find(ctx.query.get('q') || '') }; },
       // The last clip sent to AudD, as a WAV file (only from the controller's computer or a trusted one).
       'GET /clip': ctx => {
         if (!ctx.local) throw Object.assign(new Error('Only from the computer running the controller, or one it trusts.'), { status: 403 });
