@@ -52,6 +52,12 @@ not the Times Gate.
 
 ![The Vinyl card showing a live waveform while listening to a record](docs/screenshots/vinyl-waveform.png)
 
+Its settings: the recognition service (AudD, ACRCloud, or AudD with ACRCloud as a backup) and monthly
+limits, when to switch off, and for records, a **turntable speed** correction. A turntable that runs
+even 2% fast isn't recognised, so you enter its measured speed and clips are corrected before they're sent.
+
+![The Vinyl card's settings: service, monthly limits, switch-off time, turntable speed, clip length and clean-up](docs/screenshots/vinyl-settings.png)
+
 **Button box:** give each button a press and a hold action.
 
 ![Buttons card mapping joystick and buttons to actions](docs/screenshots/buttons.png)
