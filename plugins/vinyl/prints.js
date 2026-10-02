@@ -20,6 +20,8 @@ const DF = 12, DT = 6, MIN_BIN = 6, PEAKS_PER_SEC = 24;   // a peak: the loudest
 const MAX_DT = 63, MAX_DB = 63;
 const FAN_STORE = 3, FAN_QUERY = 6;   // later peaks paired with each peak: fewer are stored than are looked up
 const MIN_SCORE = 12, MIN_RATIO = 4;  // hashes agreeing on one offset, and how far ahead of the next track
+const EASY_SCORE = 7, EASY_RATIO = 2, EASY_WINDOW_S = 20;  // the same, for the track that's expected to be playing, near where it should be
+const SHIFTS = [0, HOP / 4, HOP / 2, HOP * 3 / 4];   // a clip is tried at these alignments (samples)
 const MIN_LEARN_S = 30, MAX_LEARN_S = 25 * 60;
 
 const hann = Float32Array.from({ length: N }, (_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1)));
@@ -138,24 +140,55 @@ module.exports = (tg, s) => {
   // The learned track this clip (mic.record's WAV, at the deck's own speed) comes from, or null:
   //   { ...the track's saved details, score, offsetS }
   // fixSpeed(wav, ratio): the plugin's resampler, for tracks learned at another speed setting.
-  function match(wav, fixSpeed) {
+  // expect: the track thought to be playing ({ title, artist, album, atS }), which is accepted on less evidence;
+  //   atS: how far into it the clip should be (seconds), if known. Then only a match near there counts as easy,
+  //   which also picks the right place in music that repeats itself.
+  //  - The clip is fingerprinted at four alignments, a quarter of a frame apart, and the best is used.
+  //    Speech and other fast-changing sound falls differently into the 46 ms frames on each play, so
+  //    one alignment alone can miss most of its peaks; sustained notes don't care.
+  //  - lastTry() tells how close the last clip came, for the card's "last clip" line.
+  let tried = null;
+  function match(wav, fixSpeed, expect) {
+    tried = null;
     if (!db || !count().tracks) return null;
-    let best = null;
+    const want = expect ? db.prepare('SELECT id FROM tracks WHERE key = ?').get(keyOf(expect))?.id : null;
+    const rows = db.prepare('SELECT track, t FROM prints WHERE hash = ?');
+    let best = null, near = null;
     for (const { rpm } of db.prepare('SELECT DISTINCT rpm FROM tracks').all()) {
-      const clip = Math.abs(rpm / s.rpm - 1) > 0.002 ? fixSpeed(wav, s.rpm / rpm) : wav;
-      const votes = new Map(), rows = db.prepare('SELECT track, t FROM prints WHERE hash = ?');
-      for (const p of fingerprint(halve(clip), FAN_QUERY))
-        for (const r of rows.iterate(p.hash)) { const k = r.track * 1e6 + (r.t - p.t + 5e5); votes.set(k, (votes.get(k) || 0) + 1); }
-      const top = new Map();   // track → its best offset (counting the neighbouring offsets too)
-      for (const [k, n] of votes) {
-        if (n < 2) continue;
-        const track = Math.floor(k / 1e6), score = n + (votes.get(k - 1) || 0) + (votes.get(k + 1) || 0);
-        if (!top.has(track) || score > top.get(track).score) top.set(track, { track, score, off: k - track * 1e6 - 5e5 });
+      const x = halve(Math.abs(rpm / s.rpm - 1) > 0.002 ? fixSpeed(wav, s.rpm / rpm) : wav);
+      for (const shift of SHIFTS) {
+        const votes = new Map();
+        for (const p of fingerprint(x.subarray(shift), FAN_QUERY))
+          for (const r of rows.iterate(p.hash)) { const k = r.track * 1e6 + (r.t - p.t + 5e5); votes.set(k, (votes.get(k) || 0) + 1); }
+        const top = new Map();   // track → its best offset (counting the neighbouring offsets too)
+        for (const [k, n] of votes) {
+          if (n < 2) continue;
+          const track = Math.floor(k / 1e6), score = n + (votes.get(k - 1) || 0) + (votes.get(k + 1) || 0);
+          if (!top.has(track) || score > top.get(track).score) top.set(track, { track, score, off: k - track * 1e6 - 5e5 });
+        }
+        const ranked = [...top.values()].sort((a, b) => b.score - a.score);
+        const m = ranked[0];
+        if (!m) continue;
+        m.next = ranked[1]?.score || 0;
+        if (!near || m.score > near.score) near = m;
+        if (m.score >= MIN_SCORE && m.score >= MIN_RATIO * (m.next || 1) && (!best || m.score > best.score)) best = m;
+        // The track that's meant to be playing, around where it should be by now.
+        if (want != null) {
+          let e = null;
+          for (const [k, n] of votes) {
+            if (Math.floor(k / 1e6) !== want) continue;
+            const off = k - want * 1e6 - 5e5;
+            if (expect.atS != null && Math.abs(off * FRAME_S - expect.atS) > EASY_WINDOW_S) continue;
+            const score = n + (votes.get(k - 1) || 0) + (votes.get(k + 1) || 0);
+            if (!e || score > e.score) e = { track: want, score, off };
+          }
+          const other = ranked.find(r => r.track !== want)?.score || 0;
+          if (e && e.score >= EASY_SCORE && e.score >= EASY_RATIO * (other || 1) && (!best || best.track !== want || e.score > best.score) && !(best && best.track !== want && best.score > e.score)) best = { ...e, next: other };
+        }
       }
-      const ranked = [...top.values()].sort((a, b) => b.score - a.score);
-      const m = ranked[0];
-      if (m && m.score >= MIN_SCORE && m.score >= MIN_RATIO * (ranked[1]?.score || 1) && (!best || m.score > best.score)) best = m;
     }
+    const name = id => db.prepare('SELECT title FROM tracks WHERE id = ?').get(id)?.title;
+    if (near) tried = { title: name(near.track), score: near.score, next: near.next };
     if (!best) return null;
     const t = db.prepare('SELECT * FROM tracks WHERE id = ?').get(best.track);
     return t && { ...t, score: best.score, offsetS: Math.max(0, best.off * FRAME_S) };
@@ -204,6 +237,7 @@ module.exports = (tg, s) => {
 
   return {
     available, match, learn, forget, list, RATE,
+    lastTry: () => tried,   // { title, score, next }: the nearest learned track to the last clip, matched or not
     known: info => !!db && !!db.prepare('SELECT 1 FROM tracks WHERE key = ?').get(keyOf(info)),
     state: () => {
       const c = count();

@@ -52,6 +52,11 @@ Notes:
   are converted to the old speed before matching, so what's learned still works.
 - It recognises your own records as your equipment plays them. It won't recognise the same song
   from the radio, a different pressing or a streaming service.
+- Spoken-word tracks and other fast-changing sound: each clip is tried at four slightly different alignments,
+  because speech falls differently into the analysis frames on every play. Once a learned track is recognised,
+  its length is known, so pauses in it aren't taken for the gap before the next track, and it's accepted on less
+  evidence while it should still be playing. When a clip isn't recognised here, the card's "Last clip" line says
+  how close the nearest learned track came.
 - With learned tracks, listening works even with no service set up or the monthly limit used up:
   known tracks are recognised, others are "not recognised".
 

@@ -242,8 +242,9 @@ module.exports = tg => {
     segAdd(f, quiet, gap, now);
 
     if (phase === 'identifying') return;
-    // A chosen track's length is known: a gap well before its end is a quiet passage, not the next track.
-    const early = phase === 'playing' && track.expectMs && now - track.identifiedAt < 0.6 * track.expectMs;
+    // The track's length is known (chosen from Discogs, or learned): a gap well before its end is a pause or a
+    // quiet passage, not the next track. This is what keeps spoken-word tracks in one piece.
+    const early = phase === 'playing' && track.expectMs && now - track.identifiedAt < track.sure * track.expectMs;
     if (early && seg && seg.endAt != null && seg.resumed != null) segLabel(track);   // (so keep recording it as one track)
     if ((phase === 'playing' && gap && !early && now - track.identifiedAt > MIN_TRACK_MS) || (phase === 'gaveup' && gap)) {
       phase = 'waiting'; status = 'Between tracks — waiting for the next one…';
@@ -341,7 +342,12 @@ module.exports = tg => {
         raw = await tg.mic.record(s.clipSec * 1000);
       }
       // Your own recordings first: a track learned from an earlier play needs no request.
-      const own = s.learn && raw ? prints.match(raw, fixSpeed) : null;
+      // (Checking on a track that's already playing: that track is accepted on less evidence.)
+      const expect = track && (recheck || Date.now() - track.identifiedAt < (track.expectMs || 0))
+        ? { title: track.title, artist: track.artist, album: track.album, atS: track.startKnown ? (Date.now() - s.clipSec * 1000 - track.identifiedAt) / 1000 : null } : null;
+      const own = s.learn && raw ? prints.match(raw, fixSpeed, expect) : null;
+      const tried = s.learn && raw ? prints.lastTry() : null;
+      const nearest = own || !tried ? '' : ` (own recordings: nearest ${tried.title}, score ${tried.score} against ${tried.next})`;
       if (own) {
         if (cancelled()) return;
         cueSync(own.title);
@@ -350,6 +356,7 @@ module.exports = tg => {
         misses = 0;
         matched({ title: own.title, artist: own.artist, album: own.album || '', year: own.year || '', art: own.art, link: own.link, spotify: own.spotify,
           isrc: own.isrc, label: own.label, durationMs: Math.round(own.secs * 1000), posMs: Math.round(own.offsetS * 1000), realTime: true,
+          startedAt: Date.now() - s.clipSec * 1000 - Math.round(own.offsetS * 1000), lengthMs: Math.round(own.secs * 1000),
           service: 'your own recordings', own: true,
           // (It was learned from this very record: keep its album and position rather than looking the song up again.)
           rec: own.discogs ? { album: own.album, year: own.year, pos: own.position, where: discogs.wherePos(own.position), cover: own.art, link: own.discogs } : undefined }).catch(e => tg.log('Saving the match failed:', e.message));
@@ -397,9 +404,9 @@ module.exports = tg => {
         if (a.result) { found = { ...a.result, service: sv.name }; notes.push(`${sv.name}: matched ${found.title} — ${found.artist}${found.note || ''}`); break; }
         notes.push(`${sv.name}: no match${a.note || ''}`);
       }
-      lastClip.outcome = notes.join(' · ') || 'not sent';
+      lastClip.outcome = (notes.join(' · ') || 'not sent') + nearest;
       if (cancelled()) return;
-      if (why && !usable().length) { answered = true; lastClip.outcome = 'not in your own recordings · ' + why; }   // (only own recognition is possible)
+      if (why && !usable().length) { answered = true; lastClip.outcome = 'not in your own recordings · ' + why + nearest; }   // (only own recognition is possible)
       if (!answered) {   // every service failed: a refusal stops listening, network trouble retries
         const msg = notes.join(' · ') || 'Nothing to send to';
         if (!usable().length) { if (active) return turnOff('Stopped: ' + msg); phase = 'off'; status = msg; return; }
@@ -444,9 +451,12 @@ module.exports = tg => {
     const now = Date.now(), pos = res.posMs;
     const t = { title: tidy(res.title), artist: tidy(res.artist), album: tidy(res.album), year: res.year, art: res.art, link: res.link,
       spotify: res.spotify, service: res.service, own: !!res.own, picked: !!res.picked, isrc: res.isrc, label: res.label, identifiedAt: now,
-      expectMs: res.picked && res.durationMs ? res.durationMs / speedRatio() : null };   // how long a chosen track should last on this deck
+      // How long it should last on this deck, when that's known: a chosen track (Discogs' length), or a learned one (exactly).
+      expectMs: res.lengthMs || (res.picked && res.durationMs ? res.durationMs / speedRatio() : null), sure: res.lengthMs ? 0.9 : 0.6 };
+    if (res.startedAt) t.identifiedAt = res.startedAt;   // (when the track began, worked out from where the clip was in it)
+    t.startKnown = !!(res.startedAt || res.picked);
     const same = !!track && sameSong(track, t);
-    if (same && !res.fix) { t.title = track.title; t.artist = track.artist; t.identifiedAt = track.identifiedAt; }   // (keep its name, and when it started)
+    if (same && !res.fix) { t.title = track.title; t.artist = track.artist; t.identifiedAt = track.identifiedAt; t.startKnown = track.startKnown; }   // (keep its name, and when it started)
     // The record in the Discogs collection with this song: its album, year and cover replace the
     // service's (which often names a compilation), and it says where the song is on the record.
     const own = res.rec || (same ? null : discogs.match(t.title, t.artist, now));
