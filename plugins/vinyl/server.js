@@ -350,7 +350,9 @@ module.exports = tg => {
         misses = 0;
         matched({ title: own.title, artist: own.artist, album: own.album || '', year: own.year || '', art: own.art, link: own.link, spotify: own.spotify,
           isrc: own.isrc, label: own.label, durationMs: Math.round(own.secs * 1000), posMs: Math.round(own.offsetS * 1000), realTime: true,
-          service: 'your own recordings', own: true }).catch(e => tg.log('Saving the match failed:', e.message));
+          service: 'your own recordings', own: true,
+          // (It was learned from this very record: keep its album and position rather than looking the song up again.)
+          rec: own.discogs ? { album: own.album, year: own.year, pos: own.position, where: discogs.wherePos(own.position), cover: own.art, link: own.discogs } : undefined }).catch(e => tg.log('Saving the match failed:', e.message));
         if (!active) phase = 'off';
         if (manual && s.autoShow && !tg.isLive()) tg.setLive(true, showOn);
         return;
