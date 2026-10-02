@@ -68,6 +68,10 @@ service altogether: **choose the record and side** you're about to play from you
 
 ![The five screens: the record's cover, the song title, the artist, and a spinning record with the album, year, side and track](docs/screenshots/screens-vinyl.png)
 
+![The Vinyl card's history: a side of The Best Of Arlo Guthrie recognised from its own recordings (marked own), with no request to a service](docs/screenshots/vinyl-own.png)
+
+![Choosing the record yourself: the Arlo Guthrie records in the Discogs collection, each with buttons for its sides](docs/screenshots/vinyl-pick.png)
+
 ![The Vinyl card's settings: service, monthly limits, switch-off time, turntable speed, clip length and clean-up](docs/screenshots/vinyl-settings.png)
 
 **Listening reports:** everything Vinyl identifies and Spotify plays is saved to a listening log. The
@@ -76,6 +80,10 @@ reports show top artists and songs, plays over time and when you listen, on the 
 ![Listening reports on the five screens: plays, top artists, top songs, plays by day, last played](docs/screenshots/screens-reports.png)
 
 ![The Listening reports card: headline figures, top artists, songs and albums, charts and latest plays](docs/screenshots/reports.png)
+
+![Marking a track: Skips, Crackles, Poor quality, Needs cleaning, Wrong song, Wrong album, Wrong Discogs entry, and a comment](docs/screenshots/note.png)
+
+![The reports' Favourites and Your notes sections](docs/screenshots/reports-notes.png)
 
 **Button box:** give each button a press and a hold action.
 
