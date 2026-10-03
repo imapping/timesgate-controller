@@ -39,7 +39,7 @@ and a rainbow edge light:
 ![GitHub celebrating a new star](docs/screenshots/screens-github-party.png)
 
 **Mowing:** which lawns and areas are due for mowing, from [Mowing Tracker](https://www.mowingtracker.com): a map of the property
-coloured by status, the area to mow next, and how many are overdue. (Shown here with made-up test data.)
+coloured by status, the area to mow next, and how many are overdue.
 
 ![Mowing: a map of the property coloured by status, the area to mow next, the counts, and the next few areas](docs/screenshots/screens-mowing.png)
 
