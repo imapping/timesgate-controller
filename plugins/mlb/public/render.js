@@ -90,7 +90,19 @@ function mbState(c, v, now) {
     return;
   }
   const i = v.inning || {}, mid = /Middle|End/.test(i.state);
-  mbText(c, (mid ? (i.state === 'Middle' ? 'MID ' : 'END ') : i.half === 'Top' ? '▲ ' : '▼ ') + String(i.ordinal || '').toUpperCase(), 64, 22, 18, MB.text, '800');
+  // "TOP 5TH" (the away team batting) or "BOT 5TH" (the home team), with the usual ▲ / ▼ drawn as a shape,
+  // so it doesn't depend on the font having the symbol.
+  const label = (mid ? (i.state === 'Middle' ? 'MID ' : 'END ') : i.half === 'Top' ? 'TOP ' : 'BOT ') + String(i.ordinal || '').toUpperCase();
+  const size = mbFit(c, label, mid ? 120 : 102, 18, 11, '800');
+  c.font = mbFont(size, '800');
+  const tw = c.measureText(label).width, x0 = 64 - (tw + (mid ? 0 : 16)) / 2;
+  if (!mid) {
+    c.fillStyle = MB.base; c.beginPath();
+    if (i.half === 'Top') { c.moveTo(x0, 20); c.lineTo(x0 + 12, 20); c.lineTo(x0 + 6, 10); }
+    else { c.moveTo(x0, 10); c.lineTo(x0 + 12, 10); c.lineTo(x0 + 6, 20); }
+    c.closePath(); c.fill();
+  }
+  mbText(c, label, x0 + (mid ? 0 : 16), 22, size, MB.text, '800', 'left', 120);
   mbDiamond(c, 64, 66, mid ? [false, false, false] : v.bases);
   for (let k = 0; k < 3; k++) {   // outs
     c.beginPath(); c.arc(46 + k * 18, 104, 6, 0, Math.PI * 2);
