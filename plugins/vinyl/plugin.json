@@ -2,7 +2,7 @@
   "id": "vinyl",
   "name": "Vinyl",
   "version": "1.0.0",
-  "description": "Identifies the record you're playing (through the microphone, with AudD and/or ACRCloud) and shows its art, title and artist — within a monthly request budget.",
+  "description": "Identifies the record you\u0027re playing (from the turntable or a microphone) and shows its art, title and artist. It learns your records and recognises them itself, matches them to your Discogs collection, and only asks AudD or ACRCloud about what it doesn\u0027t know yet.",
   "author": "TimesGate",
   "order": 25,
   "panel": "panel.html",
