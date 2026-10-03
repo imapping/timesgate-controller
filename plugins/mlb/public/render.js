@@ -91,9 +91,12 @@ function mbState(c, v, now) {
     return;
   }
   if (v.phase === 'final') {
-    mbText(c, 'FINAL', 64, 62, 30, MB.text, '800');
+    mbText(c, 'FINAL', 64, 54, 30, MB.text, '800');
     const n = v.inning?.n;
-    if (n && n !== v.scheduled) mbText(c, `${n} innings`, 64, 88, 13, MB.muted, '600');
+    if (n && n !== v.scheduled) mbText(c, `${n} innings`, 64, 76, 13, MB.muted, '600');
+    // Who won, in words (your team in yellow).
+    const win = (v.home.score ?? 0) > (v.away.score ?? 0) ? v.home : (v.away.score ?? 0) > (v.home.score ?? 0) ? v.away : null;
+    if (win) { const s = `${win.name} win`; mbText(c, s, 64, 104, mbFit(c, s, 120, 16, 10), win.id === v.team ? MB.base : MB.muted, '700'); }
     return;
   }
   const i = v.inning || {}, mid = /Middle|End/.test(i.state);
@@ -147,15 +150,16 @@ function mbLine(c, v) {
 function mbMore(c, v, now) {
   c.fillStyle = MB.bg; c.fillRect(0, 0, 128, 128);
   if (v.phase === 'live') { mbLine(c, v); return; }
-  let y = 24;
-  const series = mbSeries(v);
-  if (series) { mbWrap(c, series, 11, 120, 2, '700').forEach(l => { mbText(c, l, 64, y, 11, MB.muted, '700'); y += 14; }); }
-  if (v.series.status) { mbWrap(c, v.series.status, 14, 120, 2, '700').forEach(l => { mbText(c, l, 64, y + 8, 14, MB.base, '700'); y += 18; }); y += 8; }
+  // Fixed rows, so it always fits: the series (up to 2 lines), its status (1 line), then the next game.
+  const series = mbSeries(v), top = v.next ? 0 : 14;
+  mbWrap(c, series, 11, 120, 2, '700').forEach((l, k) => mbText(c, l, 64, 17 + top + k * 13, 11, MB.muted, '700'));
+  if (v.series.status) mbText(c, v.series.status, 64, 56 + top, mbFit(c, v.series.status, 120, 15, 9), MB.base, '700');
   if (v.next) {
     const w = mbWhen(v.next.start, now);
-    mbText(c, 'NEXT', 64, Math.max(y + 18, 76), 10, MB.muted, '700');
-    mbText(c, (v.next.home ? 'v ' : '@ ') + v.next.opp.abbr, 64, Math.max(y + 38, 96), 16, MB.text, '800');
-    mbText(c, `${w.day} ${w.time}`, 64, Math.max(y + 56, 116), 11, MB.muted, '600', 'center', 124);
+    mbText(c, 'NEXT', 64, 79, 10, MB.muted, '700');
+    mbText(c, (v.next.home ? 'v ' : '@ ') + v.next.opp.abbr, 64, 99, 16, MB.text, '800');
+    const when = `${w.day} ${w.time}`;
+    mbText(c, when, 64, 118, mbFit(c, when, 122, 11, 8, '600'), MB.muted, '600', 'center', 124);
   }
 }
 

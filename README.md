@@ -46,7 +46,7 @@ coloured by status, the area to mow next, and how many are overdue.
 **Baseball (MLB):** live-ish scores for your team from MLB's public stats feed: the score, inning, runners, outs and count,
 and who's batting and pitching, with the rainbow edge light when your team scores.
 
-![Baseball: Braves at Dodgers, top of the 6th, Dodgers 2-1, a runner on first, with the batter, pitcher and runs, hits and errors](docs/screenshots/screens-mlb.png)
+![Baseball after a game: the Braves and Dodgers logos with the final score, Dodgers win, runs, hits and errors, the series and the next game](docs/screenshots/screens-mlb.png)
 
 **Music visualizer:** dances in time with the beat it hears through the microphone.
 
