@@ -43,6 +43,11 @@ coloured by status, the area to mow next, and how many are overdue.
 
 ![Mowing: a map of the property coloured by status, the area to mow next, the counts, and the next few areas](docs/screenshots/screens-mowing.png)
 
+**Baseball (MLB):** live-ish scores for your team from MLB's public stats feed: the score, inning, runners, outs and count,
+and who's batting and pitching, with a beep and the rainbow edge when your team scores.
+
+![Baseball: Braves at Dodgers, end of the 4th, Dodgers 2-0, with the bases, outs, batter, pitcher and runs, hits and errors](docs/screenshots/screens-mlb.png)
+
 **Music visualizer:** dances in time with the beat it hears through the microphone.
 
 ![Music visualizer bars](docs/screenshots/screens-visualizer.png)
@@ -341,6 +346,7 @@ Some plugins use online services. Each user sets up their own account or key; no
   token, to match songs to the records you own. That data is provided by Discogs and is subject to its API terms of use.
 - **GitHub:** uses the GitHub API. It works without a token; an optional read-only token of your
   own adds visitors, clones and your contribution graph.
+- **Baseball (MLB):** uses MLB's public stats feed (statsapi.mlb.com), no key needed; its data is for personal, non-commercial use.
 - **Mowing:** uses [Mowing Tracker](https://www.mowingtracker.com)'s read-only status API with your own API key.
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.
 
@@ -355,7 +361,7 @@ excluded from git.
 ## Disclaimer
 
 This is an unofficial project, not affiliated with or endorsed by Divoom, Spotify, AudD,
-ACRCloud, Discogs or Anthropic. Divoom and Times Gate are trademarks of Divoom; Spotify is a trademark of Spotify AB;
+ACRCloud, Discogs, MLB or Anthropic. Divoom and Times Gate are trademarks of Divoom; Spotify is a trademark of Spotify AB;
 Claude is a trademark of Anthropic.
 
 ## License
