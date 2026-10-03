@@ -1,4 +1,4 @@
-// Claude status panel: the summary on the page, previews, and the beep / rainbow options.
+// Claude status panel: the summary on the page, previews, and the rainbow option.
 // The screens are drawn by render.js (also used by server.js to update the device).
 (() => {
   const p = TG.plugin('claude');
@@ -42,9 +42,8 @@
   };
 
   const setOpt = o => p.api('options', o).catch(e => log('Claude: ' + e.message, 'e'));
-  p.el('#clBeep').onchange = e => setOpt({ beep: e.target.checked });
   p.el('#clRainbow').onchange = e => setOpt({ rainbow: e.target.checked });
-  p.onState(s => { p.el('#clBeep').checked = !!s.beep; p.el('#clRainbow').checked = !!s.rainbow; });
+  p.onState(s => { p.el('#clRainbow').checked = !!s.rainbow; });
 
   poll();
   setInterval(poll, 2000);

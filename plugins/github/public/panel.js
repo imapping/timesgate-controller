@@ -23,7 +23,7 @@
     $p('#ghSetup').hidden = s.hasToken;
     $p('#ghTokenRow').style.display = s.hasToken ? '' : 'none';  // (.row's display:flex overrides hidden)
     $p('#ghTokenInfo').textContent = s.hasToken ? `Token saved${s.login ? ` (signed in as ${s.login})` : ''}${s.contribError ? ` · contribution graph: ${s.contribError}` : ''}.` : '';
-    for (const [id, v] of [['#ghEvStars', s.events.stars], ['#ghEvForks', s.events.forks], ['#ghEvIssues', s.events.issues], ['#ghBeep', s.beep], ['#ghRainbow', s.rainbow]]) $p(id).checked = v;
+    for (const [id, v] of [['#ghEvStars', s.events.stars], ['#ghEvForks', s.events.forks], ['#ghEvIssues', s.events.issues], ['#ghRainbow', s.rainbow]]) $p(id).checked = v;
     const rate = s.rate ? ` GitHub requests left this hour: ${s.rate.left} of ${s.rate.limit}.` : '';
     $p('#ghNote').textContent = (s.error ? 'Last check failed: ' + s.error + '.' : s.checkedAt ? `Checked ${new Date(s.checkedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.` : '') + rate;
 
@@ -88,9 +88,9 @@
     if (await call('options', { token })) { $p('#ghToken').value = ''; p.info('Token saved.'); p.runPreview().catch(() => {}); }
   };
   $p('#ghForget').onclick = () => confirm('Remove the GitHub token from this controller?') && call('options', { token: '' });
-  const opt = () => call('options', { beep: $p('#ghBeep').checked, rainbow: $p('#ghRainbow').checked,
+  const opt = () => call('options', { rainbow: $p('#ghRainbow').checked,
     events: { stars: $p('#ghEvStars').checked, forks: $p('#ghEvForks').checked, issues: $p('#ghEvIssues').checked } });
-  for (const id of ['#ghBeep', '#ghRainbow', '#ghEvStars', '#ghEvForks', '#ghEvIssues']) $p(id).onchange = opt;
+  for (const id of ['#ghRainbow', '#ghEvStars', '#ghEvForks', '#ghEvIssues']) $p(id).onchange = opt;
   $p('#ghTest').onclick = async () => {
     try {
       await fetch('/api/plugins/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'github.test', args: {} }) });

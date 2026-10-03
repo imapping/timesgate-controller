@@ -25,8 +25,8 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
 - `plugins/vinyl/prints.js`: Vinyl's own recognition. Tracks are fingerprinted as they play (spectrogram peak pairs) and saved in
   `data/vinyl-prints.db`; clips are matched there first, and only unknown ones go to AudD/ACRCloud.
 - `buttons.js`: reads the USB button box through node-hid, and runs the action assigned to each button.
-  With several Times Gates, the box has a selected one (`buttons.switch` moves to the next, with a
-  beep and edge flash); buttons without a fixed unit act on it.
+  With several Times Gates, the box has a selected one (`buttons.switch` moves to the next, with an
+  edge flash); buttons without a fixed unit act on it.
 - `public/`: the page. `index.html` holds the core controls; `plugins.js` holds the `TG` page API
   and the plugin loader.
 - `plugins/<id>/`: features as plugins (claude, spotify, vinyl, weather, visualizer, github, reports, mowing, mlb).

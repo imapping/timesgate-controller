@@ -85,7 +85,6 @@ function makeToolkit(rec) {
     // The devices. `unit`: one id, 'all', or left out (send: all units; alerts: units with alerts on).
     device: {
       send: (payload, unit) => engine.sendTo(payload, unit),        // any Divoom API command; resolves to the first reply
-      beep: (opts, unit) => engine.beep(opts, unit),                // { on, off, total } in ms
       edgeRainbow: (ms, unit) => engine.edgeAlert(ms, unit),        // rainbow edge light, then back to how it was
       stopLightShow: unit => engine.stopLightShow(unit),            // before driving the lights yourself
     },

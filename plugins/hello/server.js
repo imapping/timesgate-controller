@@ -21,9 +21,9 @@ module.exports = tg => {
         return { message: tg.settings.message };
       },
     },
-    // Things the button box (Buttons card) can trigger, or: POST /api/plugins/action { id: 'hello.beep' }
+    // Things the button box (Buttons card) can trigger, or: POST /api/plugins/action { id: 'hello.flash' }
     actions: {
-      beep: { label: 'beep twice', run: () => tg.device.beep({ on: 100, off: 100, total: 400 }) },
+      flash: { label: 'rainbow edge for 10 seconds', run: () => tg.device.edgeRainbow(10 * 1000) },
     },
   };
 };

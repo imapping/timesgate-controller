@@ -2,7 +2,7 @@
   "id": "claude",
   "name": "Claude status",
   "version": "1.0.0",
-  "description": "What your Claude Code sessions are doing, your session and weekly usage, and a beep / rainbow edge light when Claude needs you.",
+  "description": "What your Claude Code sessions are doing, your session and weekly usage, and a rainbow edge light when Claude needs you.",
   "author": "TimesGate",
   "order": 10,
   "panel": "panel.html",

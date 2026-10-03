@@ -1,8 +1,8 @@
 // GitHub repository stats: stars, visitors and clones (last 14 days), forks/watchers/issues/PRs,
 // the last commit and top referrer, and your contribution graph. Checks every 10 minutes, even
-// when not on the screens, so it can celebrate new stars, forks, issues and pull requests (beep,
+// when not on the screens, so it can celebrate new stars, forks, issues and pull requests (the
 // rainbow edge, and confetti on screen 1 if GitHub is showing).
-// Settings in data/github.json: { token, repos, beep, rainbow, events, seen, recent }.
+// Settings in data/github.json: { token, repos, rainbow, events, seen, recent }.
 // The token is set from this computer (or a trusted one) only, and never sent to the page. Without a token, it shows the
 // public numbers (no visitors, clones or contribution graph).
 const { renderGithub, GH_SPEED } = require('./public/render.js');
@@ -15,7 +15,7 @@ const REPO_RE = /^[\w.-]+\/[\w.-]+$/;
 
 module.exports = tg => {
   const s = tg.settings;
-  s.token ??= ''; s.repos ??= []; s.beep ??= true; s.rainbow ??= true;
+  s.token ??= ''; s.repos ??= []; delete s.beep; s.rainbow ??= true;
   s.events ??= { stars: true, forks: true, issues: true };
   s.seen ??= {};      // repo → last counts, and the star count at the start of today
   s.recent ??= [];    // the last few things celebrated, for the card
@@ -107,7 +107,6 @@ module.exports = tg => {
   function celebrate(name, ev) {
     party = { repo: name, kind: ev.kind, n: ev.n || 1, who: ev.who || null, at: Date.now() };
     s.recent = [{ ...party }, ...s.recent].slice(0, 8); tg.save();
-    if (s.beep) tg.device.beep({ on: 90, off: 70, total: 800 });
     if (s.rainbow) tg.device.edgeRainbow(60 * 1000);
     const i = s.repos.indexOf(name); if (i >= 0) current = i;
     if (partyTimer) tg.clear(partyTimer);
@@ -148,7 +147,7 @@ module.exports = tg => {
   function state() {
     return {
       hasToken: !!s.token, repos: s.repos, current: s.repos[current % (s.repos.length || 1)] || null,
-      beep: s.beep, rainbow: s.rainbow, events: s.events, error, checkedAt, rate, recent: s.recent,
+      rainbow: s.rainbow, events: s.events, error, checkedAt, rate, recent: s.recent,
       login: contrib && !contrib.error ? contrib.login : null, contribError: contrib?.error || null,
       stats: s.repos.map(n => data[n]).filter(Boolean).map(d => ({
         name: d.name, url: d.url, stars: d.stars, today: d.today, forks: d.forks, watchers: d.watchers, issues: d.issues, prs: d.prs,
@@ -200,7 +199,6 @@ module.exports = tg => {
           tg.save(); await check();
           if (error && s.token) { const e = error; s.token = ''; tg.save(); await check(); throw Object.assign(new Error('That token didn\'t work: ' + e), { status: 400 }); }
         }
-        if (typeof b.beep === 'boolean') s.beep = b.beep;
         if (typeof b.rainbow === 'boolean') s.rainbow = b.rainbow;
         if (b.events) for (const k of ['stars', 'forks', 'issues']) if (typeof b.events[k] === 'boolean') s.events[k] = b.events[k];
         tg.save();

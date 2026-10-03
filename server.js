@@ -161,7 +161,7 @@ const server = http.createServer(async (req, res) => {
       if (b.forget) buttons.forget(b.forget);
       else if ('device' in b) buttons.useDevice(b.device);
       else if (b.input) buttons.setInput(b.input, b);
-      else buttons.setOptions(b);   // { selected, switchBeep, switchFlash }
+      else buttons.setOptions(b);   // { selected, switchFlash }
       return sendJson(res, 200, { ...buttons.status(true), ...extra() });
     }
 

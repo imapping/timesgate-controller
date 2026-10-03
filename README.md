@@ -33,8 +33,8 @@ graph (shown here with example numbers):
 
 ![GitHub: stars, visitors, clones, activity and contribution graph](docs/screenshots/screens-github.png)
 
-When a repository gets a new star, fork, issue or pull request, it celebrates with confetti, a beep
-and a rainbow edge light:
+When a repository gets a new star, fork, issue or pull request, it celebrates with confetti and a
+rainbow edge light:
 
 ![GitHub celebrating a new star](docs/screenshots/screens-github-party.png)
 
@@ -164,8 +164,7 @@ If you have more than one Times Gate, press **Find on network** again and add ea
 appears at the top of the page.
 
 With a button box and several Times Gates, give one button the **Switch Times Gate** action. Each
-press moves the box to the next Times Gate, which beeps (once for the first, twice for the
-second…) and flashes its edge light. Buttons set to **on the selected one** (the default) then act
+press moves the box to the next Times Gate, which flashes its edge light. Buttons set to **on the selected one** (the default) then act
 on that Times Gate. You can still tie a button to a particular Times Gate, or to all of them.
 
 ### 5. Keep it running

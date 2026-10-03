@@ -16,7 +16,7 @@ lines. The built-in plugins are fuller, real-world examples:
 | `plugins/visualizer` | Use the microphone and drive the lights |
 | `plugins/vinyl` | Record audio clips, call a paid API within a monthly budget, and run an on-request mode that switches itself off |
 | `plugins/reports` | Query the listening log with SQL, and draw ranked lists and bar charts on the page and the screens |
-| `plugins/github` | Check an API on a timer even when not on the screens, keep a token server-side, and celebrate events with an animation, beep and rainbow edge |
+| `plugins/github` | Check an API on a timer even when not on the screens, keep a token server-side, and celebrate events with an animation and rainbow edge |
 
 ## Folder layout
 
@@ -79,7 +79,7 @@ module.exports = tg => ({
   live: on => {},                                             // it started/stopped being kept updated
   state: () => ({ message: tg.settings.message }),            // sent to the page (TG.plugin(id).onState)
   routes: { 'POST /message': ({ body }) => { … return { ok: true }; } },
-  actions: { beep: { label: 'beep twice', run: args => tg.device.beep() } },
+  actions: { flash: { label: 'rainbow edge for 10 seconds', run: args => tg.device.edgeRainbow(10000) } },
   pageCommand: payload => {},                                 // the page sent a light command / started the light show
   stop: () => {},                                             // plugin turned off or removed
 });
@@ -126,7 +126,7 @@ unit re-sending only its changed screens.
 - `state(unit)` gets the unit the page is showing, and `pageCommand(payload, unit)` says which unit it
   came from.
 - Leave `unit` out for the default: the first unit for showing things, every unit for
-  `tg.device.send`, and the units with alerts turned on for beeps and rainbows.
+  `tg.device.send`, and the units with alerts turned on for rainbows.
 
 ### Staying up to date
 
@@ -162,7 +162,7 @@ the Claude and Spotify plugins). Never serve secrets from `public/`.
 
 Named things a plugin can do, for the USB button box (Buttons card), scenes and other plugins.
 Every plugin with `render` automatically gets `<id>.show` and `<id>.live`
-(`{ on: true|false }`, or toggles). Run one with `POST /api/plugins/action { "id": "hello.beep", "args": {} }`;
+(`{ on: true|false }`, or toggles). Run one with `POST /api/plugins/action { "id": "hello.flash", "args": {} }`;
 list them with `GET /api/plugins/actions`. The list also includes built-in `core.*` actions, such as
 `core.next` (next screen feature), `core.redUp`, `core.timer5` and `core.brightUp`. Plugins can run
 those the same way. Keep action labels short: they appear in the buttons' drop-down lists.
@@ -190,7 +190,6 @@ back. Call `tg.device.stopLightShow()` before you start.
 | `tg.makeCanvas(w, h)` | A canvas (`@napi-rs/canvas`, the same drawing API as the browser). `makeCanvas` is also a global, for shared render code. |
 | `tg.loadImage(urlOrBuffer)` | Load an image for drawing (downloads `http(s)` URLs) |
 | `tg.device.send(payload, unit?)` | Send any Divoom API command, e.g. `{ Command: 'Channel/SetBrightness', Brightness: 50 }`, to one unit or `'all'`. The default is all units. Resolves to the first reply. |
-| `tg.device.beep({ on, off, total }, unit?)` | Beep (milliseconds). The default is the units with alerts on. |
 | `tg.device.edgeRainbow(ms, unit?)` | Edge light rainbow for a while, then back to how it was. The default is the units with alerts on. |
 | `tg.device.stopLightShow(unit?)` | Stop the built-in light show before driving the lights yourself. The default is all units. |
 | `tg.mic.listen(fn, { sensitivity, samples })` | Use the microphone. `fn({ t, level, db, beat, bpm })` runs about 43 times a second. `level` is 0–1, `db` is dBFS, `beat` is true on a detected beat, and `bpm` is the tempo or null. Sensitivity is 0–1 and sets how easily beats are detected. With `{ samples: true }`, `fn` also gets `samples`, the raw sound as an Int16Array (512 samples, about 23 ms; valid only during the call). The Vinyl plugin uses it to stream a waveform to its card. Returns a function that stops listening. The mic only runs while something listens, and it stops automatically when the plugin is turned off. |

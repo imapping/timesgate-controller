@@ -1,13 +1,14 @@
 // Claude Code status: Claude Code hooks POST their event JSON to /api/claude/hook, and
 // claude-statusline.js POSTs the session/weekly rate limits to /api/claude/usage. Only the fields
 // needed for the display are kept (never prompt text or replies), in memory only.
-// Also beeps and/or turns the edge light rainbow when a session needs you.
+// Also turns the edge light rainbow when a session needs you.
 const { renderClaude, CL_SPEED } = require('./public/render.js');
 
 module.exports = tg => {
   const claude = { sessions: {}, usage: null, seq: 0 };
   const SESSION_MAX_AGE = 12 * 3600 * 1000;
-  const opts = tg.settings;  // { beep, rainbow }
+  const opts = tg.settings;  // { rainbow }
+  delete opts.beep;   // (the Times Gate has no buzzer)
 
   // True when the last line of Claude's reply is a question (ignoring trailing markdown/emoji).
   function endsWithQuestion(text) {
@@ -18,7 +19,6 @@ module.exports = tg => {
   }
 
   function alert() {
-    if (opts.beep) tg.device.beep({ on: 150, off: 100, total: 500 });
     if (opts.rainbow) tg.device.edgeRainbow(2 * 60 * 1000);
   }
 
@@ -70,7 +70,7 @@ module.exports = tg => {
   return {
     render: () => ({ speed: CL_SPEED, parts: renderClaude(status()).map((sc, i) => ({ key: sc.key, jobs: [{ screen: i, frames: sc.frames }] })) }),
     poll: { every: 60 * 1000, run: () => tg.update() },  // "resets in" times move
-    state: () => ({ beep: !!opts.beep, rainbow: !!opts.rainbow }),
+    state: () => ({ rainbow: !!opts.rainbow }),
     routes: {
       'GET /status': () => status(),
       'POST /hook': ctx => { localOnly(ctx); hookEvent(ctx.body || {}); },  // empty 2xx = success for Claude Code http hooks
@@ -85,10 +85,9 @@ module.exports = tg => {
         if (changed) { claude.seq++; tg.update(); }
       },
       'POST /options': ({ body }) => {
-        if (typeof body.beep === 'boolean') opts.beep = body.beep;
         if (typeof body.rainbow === 'boolean') opts.rainbow = body.rainbow;
         tg.save();
-        return { beep: !!opts.beep, rainbow: !!opts.rainbow };
+        return { rainbow: !!opts.rainbow };
       },
     },
     actions: {

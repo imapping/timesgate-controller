@@ -13,7 +13,7 @@ Shows how your GitHub repositories are doing, and celebrates when something new 
 
 It checks GitHub every 10 minutes, even when something else is on the screens. When a repository
 gets a new **star**, **fork**, **issue** or **pull request**:
-- it beeps and turns the edge light rainbow for a minute, on the Times Gates with alerts on;
+- it turns the edge light rainbow for a minute, on the Times Gates with alerts on;
 - if GitHub is on the screens, screen 1 shows confetti and who did it, for 10 minutes.
 
 Choose which events to celebrate, and how, in the card. **Test** tries it out. The buttons can

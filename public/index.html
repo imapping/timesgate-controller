@@ -353,7 +353,6 @@
     <div class="row">
       <label>Noise meter</label>
       <div class="seg"><button data-noise="1">On</button><button data-noise="0">Off</button></div>
-      <button id="beep">Beep</button>
     </div>
   </section>
 
@@ -381,7 +380,7 @@
     <h2 style="margin-top:16px">Times Gates</h2>
     <div class="row">
       <label for="unitName">Name</label><input type="text" id="unitName" maxlength="30" size="14" placeholder="e.g. Office">
-      <label title="Beeps and rainbow alerts from plugins (e.g. when Claude needs you) go to this Times Gate"><input type="checkbox" id="unitAlerts"> Alerts</label>
+      <label title="Rainbow alerts from plugins (e.g. when Claude needs you) go to this Times Gate"><input type="checkbox" id="unitAlerts"> Alerts</label>
       <button id="unitRemove" class="danger" hidden>Remove</button>
     </div>
     <p class="hint">To add another Times Gate, press <b>Find on network</b> and pick it. The list at the top then switches which one this page controls; each keeps its own screens, timer, score and lights.</p>
@@ -404,7 +403,6 @@
       <label for="btSelected">Buttons control</label>
       <select id="btSelected" title="The Times Gate that buttons set to &quot;the selected one&quot; act on. A button with the Switch Times Gate action moves to the next."></select>
       <label style="margin-left:8px">When switching:</label>
-      <label><input type="checkbox" id="btSwBeep"> beep (once for the first, twice for the second…)</label>
       <label><input type="checkbox" id="btSwFlash"> flash its edge light</label>
     </div>
     <div id="btList" class="list" style="max-height:none"></div>
@@ -942,7 +940,6 @@ async function noiseOn() {
 }
 document.querySelectorAll('[data-noise]').forEach(b => b.onclick = () =>
   b.dataset.noise === '1' ? noiseOn() : cmd({ Command: 'Tools/SetNoiseStatus', NoiseStatus: 0 }));
-$('beep').onclick = () => cmd({ Command: 'Device/PlayBuzzer', ActiveTimeInCycle: 300, OffTimeInCycle: 200, PlayTotalTime: 1000 });
 
 // ---------- settings ----------
 document.querySelectorAll('[data-h24]').forEach(b => b.onclick = () => cmd({ Command: 'Device/SetTime24Flag', Mode: Number(b.dataset.h24) }));

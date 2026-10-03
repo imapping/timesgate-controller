@@ -53,7 +53,7 @@ function btDraw(d) {
     }
     sel.value = d.selected || units[0].id;
   }
-  if ('switchBeep' in d) { $('btSwBeep').checked = d.switchBeep; $('btSwFlash').checked = d.switchFlash; }
+  if ('switchFlash' in d) $('btSwFlash').checked = d.switchFlash;
   const known = JSON.stringify([ids, d.inputs, (d.actions || []).map(a => a.id), units.map(u => u.id + u.name)]);
   if (known !== btKnown && !document.activeElement?.closest?.('#btList')) {
     btKnown = known;
@@ -99,8 +99,8 @@ function btDraw(d) {
 }
 
 $('btSelected').onchange = () => btCall({ selected: $('btSelected').value }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
-$('btSwBeep').onchange = $('btSwFlash').onchange = () =>
-  btCall({ switchBeep: $('btSwBeep').checked, switchFlash: $('btSwFlash').checked }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
+$('btSwFlash').onchange = () =>
+  btCall({ switchFlash: $('btSwFlash').checked }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
 $('btDevice').onchange = () => btCall({ device: $('btDevice').value }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
 btCall().then(btDraw).catch(() => {});
 setInterval(async () => { try { btDraw(await (await fetch('/api/buttons')).json()); } catch {} }, 500);

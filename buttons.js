@@ -4,7 +4,7 @@
 // Press a button and it appears on the page, where you choose what it does (a short press, and
 // optionally a different action when held). Settings in data/buttons.json.
 // With several Times Gates, the box has a selected one: the "Switch Times Gate" action moves to the
-// next (it beeps 1, 2… times and flashes its edge light), and buttons not tied to a particular
+// next (it flashes its edge light), and buttons not tied to a particular
 // Times Gate act on the selected one.
 
 const fs = require('fs');
@@ -15,8 +15,8 @@ try { HID = require('node-hid'); } catch {}
 const CONF_FILE = path.join(__dirname, 'data', 'buttons.json');
 const HOLD_MS = 800;
 // inputs: { id: { name, press, hold, unit } } — unit: a Times Gate id, 'all', or null (the selected one)
-// selected: the Times Gate the box controls (null: the first). switchBeep / switchFlash: feedback on switching.
-let conf = { device: null, inputs: {}, selected: null, switchBeep: true, switchFlash: true };
+// selected: the Times Gate the box controls (null: the first). switchFlash: feedback on switching.
+let conf = { device: null, inputs: {}, selected: null, switchFlash: true };
 try { conf = { ...conf, ...JSON.parse(fs.readFileSync(CONF_FILE, 'utf8')) }; } catch {}
 const save = () => { fs.mkdirSync(path.dirname(CONF_FILE), { recursive: true }); fs.writeFileSync(CONF_FILE, JSON.stringify(conf, null, 2)); };
 const log = (...a) => console.log(new Date().toLocaleTimeString(), '[buttons]', ...a);
@@ -122,8 +122,7 @@ function switchUnit() {
   const cur = selectedUnit(), next = list[(list.findIndex(u => u.id === cur.id) + 1) % list.length];
   conf.selected = next.id; save();
   log(`Now controlling ${next.name}.`);
-  const u = engine.unit(next.id), n = list.indexOf(next) + 1;
-  if (conf.switchBeep) u.beep({ on: 120, off: 120, total: n * 240 - 120 });   // 1 beep for the first, 2 for the second…
+  const u = engine.unit(next.id);
   if (conf.switchFlash) u.edgeFlash(2500);
 }
 
@@ -140,7 +139,7 @@ function status(withDevices = false) {
   const list = HID && withDevices ? (() => { try { return HID.devices().filter(isController).map(d => ({ key: devKey(d), name: (d.product || '').trim().replace(/\s+/g, ' ') })); } catch { return []; } })() : [];
   const uniq = [...new Map(list.map(d => [d.key, d])).values()];
   return { available: !!HID, connected: !!dev, device: devInfo, devices: uniq, error, inputs: conf.inputs,
-    down: [...down.keys()], last, selected: selectedUnit()?.id || null, switchBeep: conf.switchBeep, switchFlash: conf.switchFlash };
+    down: [...down.keys()], last, selected: selectedUnit()?.id || null, switchFlash: conf.switchFlash };
 }
 function setInput(id, o) {
   const b = conf.inputs[id];
@@ -151,10 +150,9 @@ function setInput(id, o) {
   if ('unit' in o) b.unit = o.unit || null;
   save();
 }
-// { selected, switchBeep, switchFlash } from the page.
+// { selected, switchFlash } from the page.
 function setOptions(o) {
   if ('selected' in o) conf.selected = o.selected || null;
-  if (typeof o.switchBeep === 'boolean') conf.switchBeep = o.switchBeep;
   if (typeof o.switchFlash === 'boolean') conf.switchFlash = o.switchFlash;
   save();
 }

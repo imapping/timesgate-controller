@@ -42,7 +42,7 @@ class Unit {
     Object.assign(this, {
       id: 'u1', name: 'Times Gate',
       ip: null, hardware: 400, token: null, deviceId: null,  // learned from the page's commands / discovery
-      alerts: true,        // gets beeps / rainbow alerts from plugins (e.g. Claude needs you)
+      alerts: true,        // gets rainbow alerts from plugins (e.g. Claude needs you)
       feed: null,          // id of the plugin kept updated on its screens
       edge: null,          // the page's last edge-light command, to put back after a rainbow alert
       noise: false,        // noise meter on?
@@ -172,9 +172,7 @@ class Unit {
   }
 
   // ----- alerts -----
-  beep({ on = 150, off = 100, total = 500 } = {}) {
-    return this.send({ Command: 'Device/PlayBuzzer', ActiveTimeInCycle: on, OffTimeInCycle: off, PlayTotalTime: total }).catch(() => {});
-  }
+  // (No beep: the Times Gate accepts Device/PlayBuzzer but has no buzzer, so it's silent.)
   // Rainbow edge light for a while (2 minutes by default), then back to what the page last set.
   // Another alert restarts the wait.
   edgeAlert(ms = 2 * 60 * 1000) {
@@ -345,7 +343,6 @@ function stopFeedEverywhere(pluginId) { liveUnits(pluginId).forEach(u => u.setFe
 
 // Plugin alerts go to every unit with alerts on (or the one given).
 const alertUnits = sel => sel ? unitsFor(sel) : units.filter(u => u.alerts);
-const beep = (opts, sel) => Promise.all(alertUnits(sel).map(u => u.beep(opts)));
 const edgeAlert = (ms, sel) => alertUnits(sel).forEach(u => u.edgeAlert(ms));
 // Any command from a plugin: to the given unit(s), or all of them. Resolves to the first reply.
 async function sendTo(payload, sel) {
@@ -376,7 +373,6 @@ const CORE_ACTIONS = {
   'core.brightUp':    ['Brightness up', u => bright(u, u.brightness + 10)],
   'core.brightDown':  ['Brightness down', u => bright(u, u.brightness - 10)],
   'core.screen':      ['Screen on/off', u => pageSend(u, { Command: 'Channel/OnOffScreen', OnOff: u.screenOn ? 0 : 1 })],
-  'core.beep':        ['Beep', u => u.beep({ on: 150, off: 100, total: 300 })],
   'core.redUp':       ['Score: Red +1', u => score(u, u.score.red + 1, u.score.blue)],
   'core.redDown':     ['Score: Red −1', u => score(u, u.score.red - 1, u.score.blue)],
   'core.blueUp':      ['Score: Blue +1', u => score(u, u.score.red, u.score.blue + 1)],
@@ -428,5 +424,5 @@ function init(pluginHost) {
 module.exports = {
   init, unit, units: () => units.map(u => u.summary()), addUnit, updateUnit, removeUnit, learnDevice,
   state, setOptions, feedChanged, stopFeedEverywhere, liveUnits: id => liveUnits(id).map(u => u.id),
-  beep, edgeAlert, sendTo, stopLightShow, coreActions, runCoreAction,
+  edgeAlert, sendTo, stopLightShow, coreActions, runCoreAction,
 };
