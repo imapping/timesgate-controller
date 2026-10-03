@@ -4,8 +4,8 @@ Live-ish scores for your MLB team (the Dodgers to start with), from MLB's public
 (statsapi.mlb.com). No account or key is needed.
 
 During a game:
-- **Screen 1:** the away team and its runs.
-- **Screen 2:** the home team and its runs ("yours" marks your team).
+- **Screen 1:** the away team's logo and its runs.
+- **Screen 2:** the home team's logo and its runs ("yours" marks your team).
 - **Screen 3:** the inning, the runners on base, the outs and the count.
 - **Screen 4:** who's batting and who's pitching.
 - **Screen 5:** runs, hits and errors for both teams.
@@ -25,4 +25,6 @@ Options in the card:
 
 Buttons can use `mlb.check` and `mlb.test`.
 
-MLB's data is for personal, non-commercial use, as the copyright line in its replies says.
+MLB's data is for personal, non-commercial use, as the copyright line in its replies says. The team
+logos are MLB's (trademarks of MLB and the clubs): they're fetched from MLB when shown, never stored in
+this project. If one doesn't load, the team's abbreviation is shown instead.

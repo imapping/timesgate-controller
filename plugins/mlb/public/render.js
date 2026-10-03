@@ -1,5 +1,6 @@
 // Draws the Baseball (MLB) screens from the server's view. Shared by the page (previews) and the server.
 // Needs a global makeCanvas(w, h).
+// Team logos are MLB's (trademarks of MLB and the clubs), fetched at run time, never stored in the project.
 //   During a game:   1: away team and runs   2: home team and runs   3: inning, bases, outs and count
 //                    4: batter and pitcher   5: runs, hits and errors, and the series
 //   Before:          1–2: the teams and their records   3: when it starts (local time)   4–5: the series, and the venue
@@ -47,18 +48,24 @@ function mbWhen(iso, now) {
 }
 const mbSeries = v => [v.series.desc, v.series.game && v.series.type !== 'R' ? 'Game ' + v.series.game : ''].filter(Boolean).join(' · ');
 
-// Screens 1 and 2: a team. Its colour band with the abbreviation, then the runs (or its record before the game).
-function mbTeam(c, v, t, where) {
+// Screens 1 and 2: a team. Its colour band with its logo (MLB's white version for dark backgrounds), or its
+// abbreviation if the logo isn't loaded; then the runs (or its name and record before the game).
+function mbTeam(c, v, t, where, logo) {
   c.fillStyle = MB.bg; c.fillRect(0, 0, 128, 128);
-  c.fillStyle = mbColour(t.id); c.fillRect(0, 0, 128, 40);
-  mbText(c, t.abbr, 64, 31, 26, '#ffffff', '800');
+  const band = logo ? 62 : 40;
+  c.fillStyle = mbColour(t.id); c.fillRect(0, 0, 128, band);
+  if (logo) {
+    const k = Math.min(100 / logo.width, 52 / logo.height), w = logo.width * k, h = logo.height * k;
+    c.drawImage(logo, 64 - w / 2, band / 2 - h / 2, w, h);
+  } else mbText(c, t.abbr, 64, 31, 26, '#ffffff', '800');
   const ours = t.id === v.team;
   if (v.phase === 'pre') {
-    mbText(c, t.name, 64, 70, mbFit(c, t.name, 118, 18, 10), MB.text, '700', 'center', 118);
-    if (t.record) mbText(c, t.record, 64, 96, 16, MB.muted, '600');
+    const y = logo ? 84 : 70;
+    mbText(c, t.name, 64, y, mbFit(c, t.name, 118, logo ? 16 : 18, 10), MB.text, '700', 'center', 118);
+    if (t.record) mbText(c, t.record, 64, y + (logo ? 20 : 26), logo ? 13 : 16, MB.muted, '600');
   } else {
     const other = t === v.home ? v.away : v.home, ahead = (t.score ?? 0) > (other.score ?? 0);
-    mbText(c, String(t.score ?? 0), 64, 104, 60, ahead || v.phase === 'live' ? MB.text : MB.muted, '800');
+    mbText(c, String(t.score ?? 0), 64, logo ? 108 : 104, logo ? 46 : 60, ahead || v.phase === 'live' ? MB.text : MB.muted, '800');
   }
   mbText(c, (where + (ours ? ' · YOURS' : '')).toUpperCase(), 64, 122, 10, ours ? MB.base : MB.muted, '700');
 }
@@ -153,7 +160,8 @@ function mbMore(c, v, now) {
 }
 
 // view, now → [{ key, jobs }] for the five screens
-function mbParts(v, now) {
+// logos: { [team id]: image } (optional)
+function mbParts(v, now, logos = {}) {
   const one = draw => { const cv = makeCanvas(128, 128); draw(cv.getContext('2d')); return [cv]; };
   if (!v || v.phase === 'none' || !v.home) {
     return [{ key: 'mb|none', jobs: [0, 1, 2, 3, 4].map(i => ({ screen: i, frames: one(c => { c.fillStyle = MB.bg; c.fillRect(0, 0, 128, 128); if (i === 2) mbText(c, 'No games soon', 64, 68, 12, MB.muted); }) })) }];
@@ -161,8 +169,8 @@ function mbParts(v, now) {
   const w = v.phase === 'pre' ? mbWhen(v.start, now) : null;
   const k = (...a) => 'mb|' + JSON.stringify(a);
   return [
-    { key: k('away', v.phase, v.away), jobs: [{ screen: 0, frames: one(c => mbTeam(c, v, v.away, 'Away')) }] },
-    { key: k('home', v.phase, v.home), jobs: [{ screen: 1, frames: one(c => mbTeam(c, v, v.home, 'Home')) }] },
+    { key: k('away', v.phase, v.away, !!logos[v.away.id]), jobs: [{ screen: 0, frames: one(c => mbTeam(c, v, v.away, 'Away', logos[v.away.id])) }] },
+    { key: k('home', v.phase, v.home, !!logos[v.home.id]), jobs: [{ screen: 1, frames: one(c => mbTeam(c, v, v.home, 'Home', logos[v.home.id])) }] },
     { key: k('state', v.phase, v.inning, v.count, v.bases, w, v.status), jobs: [{ screen: 2, frames: one(c => mbState(c, v, now)) }] },
     { key: k('people', v.phase, v.batter, v.pitcher, v.away.score, v.home.score, v.away.hits, v.home.hits, v.away.errors, v.home.errors, v.series, v.venue), jobs: [{ screen: 3, frames: one(c => mbPeople(c, v)) }] },
     { key: k('more', v.phase, v.series, v.next, v.away.score, v.home.score, v.away.hits, v.home.hits, v.next && mbWhen(v.next.start, now)), jobs: [{ screen: 4, frames: one(c => mbMore(c, v, now)) }] },

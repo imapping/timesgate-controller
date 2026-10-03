@@ -4,7 +4,17 @@
   const $p = sel => p.el(sel);
   let st = null, teamsLoaded = false;
 
-  p.preview = async () => ({ speed: MB_SPEED, parts: mbParts(await p.api('view'), Date.now()) });
+  // Team logos for the previews, through the controller (cached by team).
+  const logos = new Map();
+  const logo = id => {
+    if (!logos.has(id)) logos.set(id, new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = '/api/mlb/logo?team=' + id; }));
+    return logos.get(id);
+  };
+  p.preview = async () => {
+    const v = await p.api('view'), imgs = {};
+    if (v.home) for (const t of [v.away, v.home]) { const i = await logo(t.id); if (i) imgs[t.id] = i; }
+    return { speed: MB_SPEED, parts: mbParts(v, Date.now(), imgs) };
+  };
   const call = async (path, body) => { try { apply(await p.api(path, body)); } catch (e) { log('Baseball: ' + e.message, 'e'); $p('#mbInfo').textContent = e.message; } };
 
   async function loadTeams() {

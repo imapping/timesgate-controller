@@ -10,11 +10,14 @@ const { mbParts, MB_SPEED } = require('./public/render.js');
 const API = 'https://statsapi.mlb.com/api/v1';
 const LIVE_MS = 30 * 1000, SOON_MS = 2 * 60 * 1000, IDLE_MS = 20 * 60 * 1000;
 const DODGERS = 119;
+// Each team's logo, MLB's white version for dark backgrounds (drawn on the team's colour).
+const LOGO = id => `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${id}.svg`;
 
 module.exports = tg => {
   const s = tg.settings;
   s.team ??= DODGERS; delete s.beep; s.rainbow ??= true; s.autoShow ??= false;
   let view = null, error = '', checkedAt = 0, nextAt = 0, checking = null, teams = null;
+  const logos = new Map();   // team id → { img, at } (img null if it didn't load; tried again after an hour)
   let seen = null;   // { pk, runs, done }: our team's runs in the current game, to notice new ones
 
   const get = async path => {
@@ -54,6 +57,7 @@ module.exports = tg => {
         if (next && g !== next) view.next = { start: next.gameDate, opp: next.teams.home.team.id === s.team ? next.teams.away.team : next.teams.home.team, home: next.teams.home.team.id === s.team };
         if (next && g !== next) view.next.opp = { abbr: view.next.opp.abbreviation, name: view.next.opp.teamName || view.next.opp.name };
         error = '';
+        if (view.home) await Promise.all([logoFor(view.away.id), logoFor(view.home.id)]);
         scored(g, was);
         // How soon to look again.
         const soon = next && new Date(next.gameDate) - now < 30 * 60e3;
@@ -92,6 +96,16 @@ module.exports = tg => {
     };
   }
 
+  async function logoFor(id) {
+    const l = logos.get(id);
+    if (l && (l.img || Date.now() - l.at < 3600e3)) return l.img;
+    let img = null;
+    try { img = await tg.loadImage(LOGO(id)); } catch (e) { tg.log(`Logo for team ${id} didn't load:`, e.message); }
+    logos.set(id, { img, at: Date.now() });
+    return img;
+  }
+  const logoMap = () => Object.fromEntries([...logos].filter(([, l]) => l.img).map(([id, l]) => [id, l.img]));
+
   // Our team scored (or won): the rainbow edge.
   function scored(g, was) {
     if (!g || !view || view.phase === 'none') { seen = null; return; }
@@ -116,12 +130,21 @@ module.exports = tg => {
   return {
     render: () => {
       if (!view) throw Object.assign(new Error(error || 'Still loading from MLB…'), { status: 503 });
-      return { speed: MB_SPEED, parts: mbParts(view, Date.now()) };
+      return { speed: MB_SPEED, parts: mbParts(view, Date.now(), logoMap()) };
     },
     state,
     routes: {
       'GET /view': () => view || {},
       'GET /teams': async () => ({ teams: await listTeams() }),
+      // A team's logo, for the page's previews (from MLB, through here so the preview can draw it).
+      'GET /logo': async ({ query, res }) => {
+        const id = Number(query.get('team'));
+        if (!Number.isInteger(id) || id < 100 || id > 999) throw Object.assign(new Error('Unknown team'), { status: 400 });
+        const r = await fetch(LOGO(id), { signal: AbortSignal.timeout(10000) });
+        if (!r.ok) throw Object.assign(new Error('No logo'), { status: 404 });
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'max-age=86400' });
+        res.end(Buffer.from(await r.arrayBuffer()));
+      },
       'POST /check': async () => { await check(); return state(); },
       'POST /options': async ({ body }) => {
         const b = body || {};
