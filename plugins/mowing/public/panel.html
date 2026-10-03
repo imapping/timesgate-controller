@@ -1,0 +1,22 @@
+<style>
+  .mw-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+</style>
+<div id="mwSetup">
+  <p class="hint" style="margin:0 0 6px">Shows which lawns and areas are due for mowing, from <a href="https://www.mowingtracker.com" target="_blank" rel="noopener">Mowing Tracker</a>.
+    Create an API key on its <b>Setup</b> page (it's shown only once), then paste it here from your computer (the one running the controller, or one it trusts; not a phone):</p>
+  <div class="row">
+    <input type="password" id="mwKey" placeholder="mt_…" style="width:300px" autocomplete="off" spellcheck="false" aria-label="Mowing Tracker API key">
+    <button id="mwSaveKey">Save key</button>
+  </div>
+</div>
+<div class="row" id="mwKeyRow" style="display:none">
+  <span id="mwInfo" class="hint" style="margin:0"></span>
+  <button id="mwCheck" title="Check Mowing Tracker now instead of waiting for the next 10-minute check">Check now</button>
+  <button id="mwForget" title="Remove the API key from this controller">Remove key</button>
+</div>
+<div id="mwError" class="hint" style="color:var(--err);display:none"></div>
+<div id="mwAreas"></div>
+<div data-tg-controls></div>
+<p class="hint">Screens: a map of the property with each area in its status colour · the area to mow next · how many are overdue, due soon
+  and up to date · the next few areas and when it was last mowed. Colours: red overdue, amber due today or tomorrow, green up to date, grey never mowed.
+  It checks every 10 minutes. The key stays on the controller; nothing can be changed in Mowing Tracker from here.</p>

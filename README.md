@@ -38,6 +38,11 @@ and a rainbow edge light:
 
 ![GitHub celebrating a new star](docs/screenshots/screens-github-party.png)
 
+**Mowing:** which lawns and areas are due for mowing, from [Mowing Tracker](https://www.mowingtracker.com): a map of the property
+coloured by status, the area to mow next, and how many are overdue. (Shown here with made-up test data.)
+
+![Mowing: a map of the property coloured by status, the area to mow next, the counts, and the next few areas](docs/screenshots/screens-mowing.png)
+
 **Music visualizer:** dances in time with the beat it hears through the microphone.
 
 ![Music visualizer bars](docs/screenshots/screens-visualizer.png)
@@ -197,6 +202,8 @@ all work without setup except:
 - **Weather:** search for your town in the Weather card.
 - **GitHub:** add your repositories in the GitHub card. For visitors and clones, add a
   fine-grained token with **Administration: Read-only** (see the plugin's Read me).
+- **Mowing:** create an API key on Mowing Tracker's Setup page and paste it into the Mowing card from the
+  computer running the controller.
 - **Claude status:** tell [Claude Code](https://claude.com/claude-code) to send its events to the
   controller. Add to `~/.claude/settings.json` on the same computer, one entry for each of
   `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Notification`, `Stop`,
@@ -334,6 +341,7 @@ Some plugins use online services. Each user sets up their own account or key; no
   token, to match songs to the records you own. That data is provided by Discogs and is subject to its API terms of use.
 - **GitHub:** uses the GitHub API. It works without a token; an optional read-only token of your
   own adds visitors, clones and your contribution graph.
+- **Mowing:** uses [Mowing Tracker](https://www.mowingtracker.com)'s read-only status API with your own API key.
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.
 
 Every song Vinyl identifies, and every song you play on Spotify (once it has played for 30 seconds),

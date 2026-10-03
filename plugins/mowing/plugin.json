@@ -1,0 +1,11 @@
+{
+  "id": "mowing",
+  "name": "Mowing",
+  "version": "1.0.0",
+  "description": "Which lawns and areas are due for mowing, from Mowing Tracker (mowingtracker.com): a map of the property coloured by status, the most urgent area, and how many are overdue.",
+  "author": "TimesGate",
+  "order": 45,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"],
+  "liveLabel": "Keep it updated (checks every 10 min)"
+}
