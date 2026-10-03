@@ -24,7 +24,7 @@
     st = s;
     if (!teamsLoaded) loadTeams();
     if (document.activeElement !== $p('#mbTeam')) $p('#mbTeam').value = s.team;
-    $p('#mbBeep').checked = s.beep; $p('#mbRainbow').checked = s.rainbow; $p('#mbAuto').checked = s.autoShow;
+    $p('#mbRainbow').checked = s.rainbow; $p('#mbAuto').checked = s.autoShow;
     const v = s.view;
     let now = 'Loading…';
     if (v && v.phase === 'none') now = 'No games in the next week.';
@@ -45,7 +45,6 @@
 
   $p('#mbTeam').onchange = e => call('options', { team: Number(e.target.value) });
   $p('#mbCheck').onclick = () => call('check', {});
-  $p('#mbBeep').onchange = e => call('options', { beep: e.target.checked });
   $p('#mbRainbow').onchange = e => call('options', { rainbow: e.target.checked });
   $p('#mbAuto').onchange = e => call('options', { autoShow: e.target.checked });
   $p('#mbTest').onclick = async () => { try { await fetch('/api/plugins/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'mlb.test' }) }); } catch {} };

@@ -2,7 +2,7 @@
   "id": "mlb",
   "name": "Baseball (MLB)",
   "version": "1.0.0",
-  "description": "Live-ish scores for your MLB team, from MLB's public stats feed: the score, inning, count, outs and runners during a game, and the last result and next game in between. Beeps and lights up the edge when your team scores.",
+  "description": "Live-ish scores for your MLB team, from MLB's public stats feed: the score, inning, count, outs and runners during a game, and the last result and next game in between. Lights up the edge when your team scores.",
   "author": "TimesGate",
   "order": 50,
   "panel": "panel.html",

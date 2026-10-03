@@ -1,8 +1,9 @@
 // Baseball (MLB): your team's games from MLB's public stats feed (statsapi.mlb.com, no key needed).
 //  - During a game it checks every 30 seconds: score, inning, count, outs, runners, batter and pitcher.
 //  - Before a game it checks every couple of minutes; otherwise every 20 minutes.
-//  - When your team scores it can beep and light the edge rainbow; a win does too.
-// Settings in data/mlb.json: { team, beep, rainbow, autoShow }.
+//  - When your team scores it can light the edge rainbow; a win does too. (No beep: the Times Gate
+//    ignores the buzzer command, and its only sound is its own timer's alarm.)
+// Settings in data/mlb.json: { team, rainbow, autoShow }.
 // MLB's data is for personal, non-commercial use (see the copyright line in its replies).
 const { mbParts, MB_SPEED } = require('./public/render.js');
 
@@ -12,7 +13,7 @@ const DODGERS = 119;
 
 module.exports = tg => {
   const s = tg.settings;
-  s.team ??= DODGERS; s.beep ??= true; s.rainbow ??= true; s.autoShow ??= false;
+  s.team ??= DODGERS; delete s.beep; s.rainbow ??= true; s.autoShow ??= false;
   let view = null, error = '', checkedAt = 0, nextAt = 0, checking = null, teams = null;
   let seen = null;   // { pk, runs, done }: our team's runs in the current game, to notice new ones
 
@@ -91,7 +92,7 @@ module.exports = tg => {
     };
   }
 
-  // Our team scored (or won): beep and the rainbow edge.
+  // Our team scored (or won): the rainbow edge.
   function scored(g, was) {
     if (!g || !view || view.phase === 'none') { seen = null; return; }
     const ours = view.home.id === s.team ? view.home : view.away, theirs = ours === view.home ? view.away : view.home;
@@ -105,14 +106,13 @@ module.exports = tg => {
   }
   function celebrate(what) {
     tg.log(what);
-    if (s.beep) tg.device.beep({ on: 90, off: 70, total: 800 });
     if (s.rainbow) tg.device.edgeRainbow(45 * 1000);
   }
 
   tg.after(2000, check);
   tg.every(LIVE_MS / 2, () => { if (Date.now() >= nextAt) check(); });
 
-  const state = () => ({ team: s.team, beep: s.beep, rainbow: s.rainbow, autoShow: s.autoShow, error, checkedAt, view });
+  const state = () => ({ team: s.team, rainbow: s.rainbow, autoShow: s.autoShow, error, checkedAt, view });
   return {
     render: () => {
       if (!view) throw Object.assign(new Error(error || 'Still loading from MLB…'), { status: 503 });
@@ -126,7 +126,7 @@ module.exports = tg => {
       'POST /options': async ({ body }) => {
         const b = body || {};
         if (Number.isInteger(b.team) && (await listTeams()).some(t => t.id === b.team) && b.team !== s.team) { s.team = b.team; seen = null; view = null; }
-        for (const k of ['beep', 'rainbow', 'autoShow']) if (typeof b[k] === 'boolean') s[k] = b[k];
+        for (const k of ['rainbow', 'autoShow']) if (typeof b[k] === 'boolean') s[k] = b[k];
         tg.save();
         await check();
         return state();

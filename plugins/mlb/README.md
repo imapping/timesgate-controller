@@ -19,8 +19,8 @@ else is on the screens.
 
 Options in the card:
 - **Your team.**
-- **When your team scores or wins:** a beep and/or the rainbow edge light (on the Times Gates with
-  alerts on). **Test** tries it.
+- **When your team scores or wins:** the rainbow edge light (on the Times Gates with alerts on).
+  **Test** tries it. There's no beep: the Times Gate ignores the buzzer command.
 - **Put it on the Times Gate when a game starts.**
 
 Buttons can use `mlb.check` and `mlb.test`.

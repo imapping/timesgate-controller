@@ -44,7 +44,7 @@ coloured by status, the area to mow next, and how many are overdue.
 ![Mowing: a map of the property coloured by status, the area to mow next, the counts, and the next few areas](docs/screenshots/screens-mowing.png)
 
 **Baseball (MLB):** live-ish scores for your team from MLB's public stats feed: the score, inning, runners, outs and count,
-and who's batting and pitching, with a beep and the rainbow edge when your team scores.
+and who's batting and pitching, with the rainbow edge light when your team scores.
 
 ![Baseball: Braves at Dodgers, top of the 6th, Dodgers 2-1, a runner on first, with the batter, pitcher and runs, hits and errors](docs/screenshots/screens-mlb.png)
 
