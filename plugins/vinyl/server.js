@@ -594,6 +594,10 @@ module.exports = tg => {
     state,
     routes: {
       'GET /state': () => state(),
+      // Just what's playing, cheap enough to poll (the Now Playing display). startedAt and lengthMs
+      // are there when they're known, for a progress bar.
+      'GET /now': () => ({ active, phase, status, track: track && { title: track.title, artist: track.artist, album: track.album,
+        year: track.year, art: track.art, where: track.where, startedAt: track.startKnown ? track.identifiedAt : null, lengthMs: track.expectMs || null } }),
       'POST /on': ctx => { turnOn(ctx.unit); return state(); },
       'POST /off': () => { turnOff(); return state(); },
       'POST /now': ctx => { identifyNow(ctx.unit); return state(); },

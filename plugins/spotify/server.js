@@ -55,7 +55,7 @@ module.exports = tg => {
         id: it.id, type: it.type, name: it.name,
         artist: it.artists ? it.artists.map(a => a.name).join(', ') : (it.show?.name || ''),
         album: it.album?.name || it.show?.name || '',
-        art: art?.url || null, duration: it.duration_ms, progress: d.progress_ms,
+        art: art?.url || null, artLarge: images[0]?.url || null, duration: it.duration_ms, progress: d.progress_ms,
         url: it.external_urls?.spotify || null, isrc: it.external_ids?.isrc || null,
         year: (it.album?.release_date || '').slice(0, 4) || null,
       } };

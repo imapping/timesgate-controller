@@ -84,6 +84,10 @@ service altogether: **choose the record and side** you're about to play from you
 
 ![The Vinyl card's settings: service, monthly limits, switch-off time, turntable speed, clip length and clean-up](docs/screenshots/vinyl-settings.png)
 
+**Now Playing:** a full-screen page for a separate display (a small HDMI screen on the Pi, a tablet or a TV),
+at `/plugins/nowplaying/now.html`. It shows the record or Spotify song playing with large cover art and a
+progress bar, and works by touch: favourite, identify, start listening. See `plugins/nowplaying/README.md`.
+
 **Listening reports:** everything Vinyl identifies and Spotify plays is saved to a listening log. The
 reports show top artists and songs, plays over time and when you listen, on the page and on the screens.
 

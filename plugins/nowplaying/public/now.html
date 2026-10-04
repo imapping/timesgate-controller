@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Now Playing</title>
+<!-- Full-screen "what's playing" for a separate display. Add ?kiosk to hide the mouse pointer (a touch screen). -->
+<style>
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { background: #0b0b0d; color: #f4f4f5; font-family: system-ui, "Segoe UI", sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  body.kiosk, body.kiosk * { cursor: none !important; }
+
+  /* The cover, blurred, behind everything. Two layers so a new cover fades in over the old one. */
+  .bg { position: fixed; inset: -12%; background: center / cover no-repeat; filter: blur(48px) brightness(.38) saturate(1.4);
+    opacity: 0; transition: opacity 1s; }
+  .bg.on { opacity: 1; }
+
+  main { position: relative; height: 100vh; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6vh;
+    align-items: center; padding: 6vh; }
+
+  .art { width: min(88vh, 55vw); aspect-ratio: 1; border-radius: 1.4vh; overflow: hidden; background: #1c1c20;
+    box-shadow: 0 2vh 6vh rgba(0, 0, 0, .55); display: grid; place-items: center; }
+  .art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity .6s; }
+  .art img.hide { opacity: 0; }
+  .art svg { width: 55%; opacity: .25; }
+
+  .info { display: flex; flex-direction: column; gap: 1.6vh; min-width: 0; }
+  .src { font-size: 2.6vh; letter-spacing: .14em; text-transform: uppercase; opacity: .6; font-weight: 600; }
+  .title { font-size: 7vh; line-height: 1.08; font-weight: 750; margin: 0;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .title.long { font-size: 5.6vh; }
+  .title.longer { font-size: 4.4vh; }
+  .artist { font-size: 4.4vh; opacity: .88; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .album { font-size: 3vh; opacity: .6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .status { font-size: 2.8vh; opacity: .7; }
+
+  .progress { margin-top: 1.4vh; }
+  .bar { height: .9vh; border-radius: 1vh; background: rgba(255, 255, 255, .18); overflow: hidden; }
+  .bar div { height: 100%; width: 0; background: #f4f4f5; border-radius: 1vh; transition: width .5s linear; }
+  .times { display: flex; justify-content: space-between; font-size: 2.3vh; opacity: .6; margin-top: .8vh; font-variant-numeric: tabular-nums; }
+
+  .actions { display: flex; gap: 2.4vh; margin-top: 2vh; flex-wrap: wrap; }
+  button { font: inherit; color: inherit; background: rgba(255, 255, 255, .12); border: 0; border-radius: 6vh;
+    height: 10vh; min-width: 10vh; padding: 0 3.4vh; font-size: 3vh; font-weight: 600; display: inline-flex; align-items: center;
+    justify-content: center; gap: 1.2vh; touch-action: manipulation; }
+  button:active { background: rgba(255, 255, 255, .26); transform: scale(.96); }
+  button[disabled] { opacity: .45; }
+  button.fav { font-size: 5vh; padding: 0; width: 10vh; }
+  button.fav.on { color: #ffc93c; }
+
+  .clock { position: fixed; top: 2.6vh; right: 3.6vh; font-size: 3vh; opacity: .55; font-variant-numeric: tabular-nums; }
+  .offline { position: fixed; bottom: 2.4vh; right: 3.6vh; font-size: 2.2vh; color: #ffb4a8; }
+
+  .idle { position: relative; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; }
+  .idle .big { font-size: 26vh; font-weight: 250; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .idle .date { font-size: 4.4vh; opacity: .6; }
+  .idle .actions { margin-top: 5vh; }
+
+  /* Tall screens (a phone or portrait tablet): the cover above the words. */
+  @media (max-aspect-ratio: 1/1) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: center; gap: 4vh; padding: 5vw; }
+    .art { width: 90vw; justify-self: center; }
+    .title { font-size: 4.6vh; } .title.long { font-size: 3.8vh; } .title.longer { font-size: 3.2vh; }
+    .artist { font-size: 3.2vh; } .album, .status { font-size: 2.3vh; }
+    button { height: 7vh; min-width: 7vh; font-size: 2.3vh; } button.fav { width: 7vh; font-size: 3.6vh; }
+    .clock { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="bg" id="bgA"></div><div class="bg" id="bgB"></div>
+
+<main id="playing" hidden>
+  <div class="art" id="art">
+    <img id="artImg" class="hide" alt="" referrerpolicy="no-referrer">
+    <svg id="artNone" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="#fff" stroke-width="3"/>
+      <circle cx="50" cy="50" r="30" fill="none" stroke="#fff" stroke-width="1.5" opacity=".6"/><circle cx="50" cy="50" r="9" fill="#fff"/></svg>
+  </div>
+  <div class="info">
+    <div class="src" id="src"></div>
+    <h1 class="title" id="title"></h1>
+    <div class="artist" id="artist"></div>
+    <div class="album" id="album"></div>
+    <div class="status" id="status"></div>
+    <div class="progress" id="progress" hidden>
+      <div class="bar"><div id="barFill"></div></div>
+      <div class="times"><span id="pos"></span><span id="len"></span></div>
+    </div>
+    <div class="actions">
+      <button class="fav" id="fav" aria-label="Favourite" hidden>☆</button>
+      <button id="identify" hidden>Identify</button>
+    </div>
+  </div>
+</main>
+
+<section class="idle" id="idle">
+  <div class="big" id="bigClock"></div>
+  <div class="date" id="date"></div>
+  <div class="actions"><button id="listen" hidden>Listen to the record</button></div>
+</section>
+
+<div class="clock" id="clock"></div>
+<div class="offline" id="offline" hidden>Can't reach the controller</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  if (new URLSearchParams(location.search).has('kiosk')) document.body.classList.add('kiosk');
+
+  let d = null, gotAt = 0, artUrl, bgTop = 'bgA';
+  const mmss = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const show = (el, on) => el.toggleAttribute('hidden', !on);   // (an attribute, so it works on the svg too)
+
+  // A new cover: load it first, then fade it in (and the blurred copy behind).
+  function setArt(url) {
+    if (url === artUrl) return;
+    artUrl = url;
+    const img = $('artImg');
+    img.classList.add('hide');
+    const bgOld = $(bgTop), bgNew = $(bgTop = bgTop === 'bgA' ? 'bgB' : 'bgA');
+    if (!url) { show($('artNone'), true); bgOld.classList.remove('on'); return; }
+    const pre = new Image();
+    pre.referrerPolicy = 'no-referrer';
+    pre.onload = () => {
+      if (url !== artUrl) return;
+      img.src = url; img.classList.remove('hide'); show($('artNone'), false);
+      bgNew.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+      bgNew.classList.add('on'); bgOld.classList.remove('on');
+    };
+    pre.onerror = () => { if (url === artUrl) { show($('artNone'), true); bgOld.classList.remove('on'); } };
+    pre.src = url;
+  }
+
+  function render() {
+    const idle = !d || !d.source;
+    show($('idle'), idle); show($('playing'), !idle);
+    show($('listen'), idle && !!d && d.vinyl && !d.listening);
+    if (idle) { setArt(null); return; }
+
+    const known = !!d.title;
+    const src = d.source === 'spotify' ? (d.playing ? 'Spotify' : 'Spotify · paused') : ['Vinyl', d.where].filter(Boolean).join(' · ');
+    $('src').textContent = src;
+    const title = known ? d.title : 'Listening…';
+    $('title').textContent = title;
+    $('title').className = 'title' + (title.length > 60 ? ' longer' : title.length > 32 ? ' long' : '');
+    $('artist').textContent = d.artist || '';
+    $('album').textContent = [d.album, d.year].filter(Boolean).join(' · ');
+    // Vinyl's own words while it's working something out (between tracks, not recognised…).
+    const status = d.source === 'vinyl' && (!known || d.between) && !/^Listening/.test(d.status || '') ? d.status || '' : '';
+    $('status').textContent = status; show($('status'), !!status);
+    setArt(known ? d.art : null);
+
+    const fav = $('fav');
+    show(fav, known);
+    fav.textContent = d.fav ? '★' : '☆'; fav.classList.toggle('on', !!d.fav);
+    show($('identify'), d.source === 'vinyl');
+    tick();
+  }
+
+  // Every half second: the clocks, and the progress bar moving on between updates.
+  function tick() {
+    const now = new Date();
+    const hm = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('clock').textContent = hm; $('bigClock').textContent = hm;
+    $('date').textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+    show($('clock'), !!(d && d.source));
+    const p = $('progress');
+    if (!d || !d.title || d.progressMs == null || !d.durationMs) return show(p, false);
+    show(p, true);
+    const pos = Math.min(d.durationMs, d.progressMs + (d.playing ? Date.now() - gotAt : 0));
+    $('barFill').style.width = (100 * pos / d.durationMs).toFixed(2) + '%';
+    $('pos').textContent = mmss(pos); $('len').textContent = mmss(d.durationMs);
+  }
+
+  async function poll() {
+    try {
+      const r = await fetch('/api/nowplaying/now', { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      d = await r.json(); gotAt = Date.now();
+      show($('offline'), false);
+      render();
+    } catch { show($('offline'), true); }
+  }
+
+  async function post(path, body, button) {
+    if (button) button.disabled = true;
+    try {
+      const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+      return r.ok ? await r.json().catch(() => ({})) : null;
+    } catch { return null; } finally { if (button) setTimeout(() => { button.disabled = false; }, 1500); }
+  }
+
+  $('fav').onclick = async () => {
+    if (!d || !d.title) return;
+    const song = d, on = !song.fav;
+    song.fav = on; render();   // straight away; put back if it didn't save
+    const r = await post('/api/listening/favourite', { title: song.title, artist: song.artist, on });
+    if (!r && d === song) { song.fav = !on; render(); }
+  };
+  $('identify').onclick = async e => { await post('/api/vinyl/now', {}, e.currentTarget); poll(); };
+  $('listen').onclick = async e => { await post('/api/vinyl/on', {}, e.currentTarget); poll(); };
+  document.addEventListener('contextmenu', e => e.preventDefault());   // a long press on a touch screen
+
+  poll(); setInterval(poll, 2000); setInterval(tick, 500); tick();
+})();
+</script>
+</body>
+</html>

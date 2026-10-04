@@ -1,0 +1,9 @@
+{
+  "id": "nowplaying",
+  "name": "Now Playing",
+  "version": "1.0.0",
+  "description": "A full-screen page for a separate display (a small HDMI screen on the Pi, a tablet or a TV): the record or Spotify song playing, with large cover art, a progress bar and a favourite button.",
+  "author": "TimesGate",
+  "order": 28,
+  "panel": "panel.html"
+}
