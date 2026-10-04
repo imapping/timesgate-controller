@@ -325,6 +325,19 @@ settings from a PC keeps an existing login. For a new one, connect with a tunnel
 ssh -L 8080:127.0.0.1:8080 yourname@timesgate.local
 ```
 
+**A screen on the Pi:** a small HDMI screen (a 7" touch screen suits it) can show the Now Playing
+page full-screen from boot, with no desktop installed. Plug it in (HDMI, plus USB for touch), then run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/imapping/timesgate-controller/main/scripts/install-kiosk.sh | bash
+```
+
+It installs [cage](https://github.com/cage-kiosk/cage) (a minimal kiosk display) and Chromium, and
+runs them on the first console in place of the text login. Its log is `journalctl -u timesgate-kiosk -f`.
+To show another page, set `KIOSK_URL` before `bash`. To go back to the text login, add `-s remove`
+after `bash`. If the picture is the wrong size, the screen may not be telling the Pi its resolution:
+add a mode to `/boot/firmware/cmdline.txt`, e.g. `video=HDMI-A-1:1024x600@60`, and reboot.
+
 **Useful commands on the Pi:** `journalctl -u timesgate -f` shows the log, and
 `sudo systemctl restart timesgate` restarts it.
 

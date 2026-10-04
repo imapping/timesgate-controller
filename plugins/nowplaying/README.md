@@ -4,7 +4,8 @@ A full-screen page showing what's playing, for a separate display: a small HDMI 
 tablet, an old phone or a TV. It draws nothing on the Times Gate.
 
 Open `http://<controller>:8080/plugins/nowplaying/now.html` (add `?kiosk` on a touch screen to hide
-the mouse pointer).
+the mouse pointer). For a screen plugged into the Pi, `scripts/install-kiosk.sh` shows it full-screen
+from boot, with no desktop needed (see "A screen on the Pi" in the main README).
 
 It shows:
 - **Spotify**, while a song plays: its cover (640 px), title, artist, album and year, and a progress bar.

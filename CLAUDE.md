@@ -33,6 +33,7 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
 - `data/`: plugin settings and secrets. Never serve these. `data/trusted.json` lists other computers
   treated as local (allowed to change setup and tokens), for a Pi with no screen.
 - `scripts/install-pi.sh`: installs it on a Raspberry Pi as a systemd service (run over SSH from the PC).
+- `scripts/install-kiosk.sh`: shows the Now Playing page full-screen on a screen plugged into the Pi (cage + Chromium on tty1, no desktop).
 - `examples/hello/`: a minimal plugin to copy.
 
 **To add a feature that shows something on the screens, write a plugin. See PLUGINS.md.**
