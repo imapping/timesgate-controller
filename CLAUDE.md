@@ -35,6 +35,7 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
 - `scripts/install-pi.sh`: installs it on a Raspberry Pi as a systemd service (run over SSH from the PC).
 - `scripts/install-kiosk.sh`: shows the Now Playing page full-screen on a screen plugged into the Pi (cage + Chromium on tty1, no desktop).
 - `examples/hello/`: a minimal plugin to copy.
+- `hardware/screen-case/`: an OpenSCAD case (and STLs) for the 7" HDMI screen that shows Now Playing.
 
 **To add a feature that shows something on the screens, write a plugin. See PLUGINS.md.**
 
