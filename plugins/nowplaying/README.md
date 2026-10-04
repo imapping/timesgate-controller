@@ -15,6 +15,12 @@ It shows:
 - A paused Spotify song, when Vinyl isn't listening.
 - Otherwise a large clock.
 
+With nothing playing, the screen dims after 2 minutes and goes black after 30. Music starting, or a
+touch, brings it back (a touch on a dimmed screen only wakes it, so it never presses a button by
+accident). Vinyl listening counts as playing, even between tracks. Change the times with `?dim=` and
+`?dark=` in minutes, or 0 for never, e.g. `now.html?kiosk&dim=5&dark=0`. On the Pi's screen, set them
+with `KIOSK_URL` when running `install-kiosk.sh`. Black still leaves the screen's backlight on.
+
 By touch:
 - **★** makes the song a favourite (the same favourites as the main page).
 - **Identify** asks Vinyl what's playing now.

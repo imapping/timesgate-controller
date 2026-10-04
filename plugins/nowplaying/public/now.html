@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Now Playing</title>
-<!-- Full-screen "what's playing" for a separate display. Add ?kiosk to hide the mouse pointer (a touch screen). -->
+<!-- Full-screen "what's playing" for a separate display. Add ?kiosk to hide the mouse pointer (a touch screen),
+     ?dim=<minutes> and ?dark=<minutes> to change when it dims and goes black with nothing playing (0: never). -->
 <style>
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -53,6 +54,11 @@
 
   .clock { position: fixed; top: 2.6vh; right: 3.6vh; font-size: 3vh; opacity: .55; font-variant-numeric: tabular-nums; }
   .offline { position: fixed; bottom: 2.4vh; right: 3.6vh; font-size: 2.2vh; color: #ffb4a8; }
+
+  /* Dimmed when nothing has played for a while: slowly down, quickly back up. */
+  body::after { content: ''; position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; }
+  body[data-dim="dim"]::after { opacity: .75; transition: opacity 4s; }
+  body[data-dim="dark"]::after { opacity: 1; transition: opacity 4s; }
 
   .idle { position: relative; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; }
   .idle .big { font-size: 26vh; font-weight: 250; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
@@ -108,7 +114,8 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  if (new URLSearchParams(location.search).has('kiosk')) document.body.classList.add('kiosk');
+  const params = new URLSearchParams(location.search);
+  if (params.has('kiosk')) document.body.classList.add('kiosk');
 
   let d = null, gotAt = 0, artUrl, bgTop = 'bgA';
   const mmss = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -160,9 +167,25 @@
     tick();
   }
 
+  // Dimming: after ?dim= minutes with nothing playing (default 2) the screen dims, and after ?dark=
+  // minutes (default 30) it goes black. 0 turns either off. Music starting, or a touch, brings it back.
+  const minutes = (name, def) => { const v = Number(params.get(name)); return params.has(name) && v >= 0 ? v : def; };
+  const DIM = minutes('dim', 2), DARK = minutes('dark', 30);
+  let quietSince = Date.now(), swallow = false;
+  function dim() {
+    const busy = d && d.source && (d.playing || d.source === 'vinyl');   // (Vinyl listening counts, even between tracks)
+    if (busy) quietSince = Date.now();
+    const quiet = (Date.now() - quietSince) / 60000;
+    document.body.dataset.dim = DARK && quiet >= DARK ? 'dark' : DIM && quiet >= DIM ? 'dim' : '';
+  }
+  // A touch on a dimmed screen only wakes it (it doesn't also press the button under the finger).
+  document.addEventListener('pointerdown', () => { swallow = !!document.body.dataset.dim; quietSince = Date.now(); dim(); }, true);
+  document.addEventListener('click', e => { if (swallow) { swallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
+
   // Every half second: the clocks, and the progress bar moving on between updates.
   function tick() {
     const now = new Date();
+    dim();
     const hm = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('clock').textContent = hm; $('bigClock').textContent = hm;
     $('date').textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
