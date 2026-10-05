@@ -153,11 +153,27 @@ const server = http.createServer(async (req, res) => {
       return mic.stream(req, res, url.searchParams.has('hq'), url.searchParams.has('keep'));   // ?hq: 44.1 kHz stereo; &keep: never drop sound (for recording)
     }
 
+    // The Wi-Fi button box: { id, down } on each press and release, { held: [ids] } every 10 seconds.
+    if (req.method === 'POST' && (url.pathname === '/api/buttons/input' || url.pathname === '/api/buttons/heartbeat')) {
+      buttons.checkKey(req.headers.authorization);
+      let b;
+      try { b = JSON.parse((await readBody(req)).toString() || '{}'); } catch { return sendJson(res, 400, { error: 'Not JSON.' }); }
+      const ip = String(req.socket.remoteAddress).replace(/^::ffff:/, '');
+      if (url.pathname === '/api/buttons/input') buttons.wifiInput(b.id, b.down === true, ip);
+      else buttons.wifiHeartbeat(b.held, ip);
+      return sendJson(res, 200, { ok: true });
+    }
+
     // Button boxes / game controllers (buttons.js): status and which action each input runs.
     if (url.pathname === '/api/buttons') {
       const extra = () => ({ actions: [buttons.SWITCH_ACTION, ...plugins.actions()], units: engine.units() });
       if (req.method === 'GET') return sendJson(res, 200, { ...buttons.status(url.searchParams.has('full')), ...extra() });
       const b = JSON.parse((await readBody(req)).toString() || '{}');
+      if ('wifiKey' in b) {   // { wifiKey: true } makes a new key, shown once; { wifiKey: false } removes it
+        if (!isLoopback(req)) return sendJson(res, 403, { error: 'Change the Wi-Fi box key from the computer running the controller, or one it trusts.' });
+        const key = buttons.setWifiKey(!b.wifiKey);
+        return sendJson(res, 200, { ...buttons.status(true), ...extra(), newKey: key });
+      }
       if (b.forget) buttons.forget(b.forget);
       else if ('device' in b) buttons.useDevice(b.device);
       else if (b.input) buttons.setInput(b.input, b);

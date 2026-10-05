@@ -399,6 +399,10 @@
   <section class="wide" id="buttons">
     <h2>Buttons</h2>
     <div class="row"><span id="btStatus" class="hint" style="margin:0"></span><select id="btDevice" hidden aria-label="Controller"></select></div>
+    <div class="row"><span id="btWifi" class="hint" style="margin:0"></span>
+      <button id="btWifiKey" title="Make the key the Wi-Fi button box sends with each press (from the computer running the controller, or one it trusts)">Create key</button>
+      <button id="btWifiForget" hidden title="Remove the key: the Wi-Fi button box stops working until it has a new one">Remove key</button></div>
+    <p id="btWifiNew" class="hint" hidden>The Wi-Fi box's key is <code id="btWifiNewKey" style="user-select:all"></code>. Put it in <code>CONTROLLER_KEY</code> in the box's <code>secrets.h</code> and upload again. It's shown only this once.</p>
     <div class="row" id="btUnitRow" style="display:none">
       <label for="btSelected">Buttons control</label>
       <select id="btSelected" title="The Times Gate that buttons set to &quot;the selected one&quot; act on. A button with the Switch Times Gate action moves to the next."></select>
@@ -406,7 +410,7 @@
       <label><input type="checkbox" id="btSwFlash"> flash its edge light</label>
     </div>
     <div id="btList" class="list" style="max-height:none"></div>
-    <p class="hint">Press a button (or move the joystick) on your button box — it appears here and lights up when pressed. Choose what a press does, and optionally something different when it's held for a second. Works with this page closed.</p>
+    <p class="hint">Press a button (or move the joystick) on your button box — USB or Wi-Fi — it appears here and lights up when pressed. Choose what a press does, and optionally something different when it's held for a second. Works with this page closed.</p>
   </section>
 
   <section class="wide" id="plugins">

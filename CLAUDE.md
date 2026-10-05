@@ -27,6 +27,12 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
 - `buttons.js`: reads the USB button box through node-hid, and runs the action assigned to each button.
   With several Times Gates, the box has a selected one (`buttons.switch` moves to the next, with an
   edge flash); buttons without a fixed unit act on it.
+  A Wi-Fi button box (an ESP32 in place of the USB encoder) posts `POST /api/buttons/input { id, down }`
+  on each change and `/api/buttons/heartbeat { held: [ids] }` every 10 s, with `Authorization: Bearer <key>`.
+  It uses the USB box's input ids, so it shares their assignments. Each held input records its source
+  (`usb`/`wifi`) so neither box releases the other's. A heartbeat only releases; 30 s of silence drops the
+  Wi-Fi box's held inputs without running anything. The key is made in the Buttons card (trusted computers
+  only), kept in `data/buttons.json` as `wifiKey`, and never sent to the page.
 - `public/`: the page. `index.html` holds the core controls; `plugins.js` holds the `TG` page API
   and the plugin loader.
 - `plugins/<id>/`: features as plugins (claude, spotify, vinyl, nowplaying, weather, visualizer, github, reports, mowing, mlb).

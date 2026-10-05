@@ -33,8 +33,14 @@ function btOptions(actions, selected) {
 const btOrder = id => (id[0] === 'b' ? 'z' : 'a') + id.replace(/\d+/g, n => n.padStart(3, '0'));
 
 function btDraw(d) {
-  $('btStatus').textContent = !d.available ? 'Button support is not installed (npm install node-hid).'
-    : d.connected ? `Connected: ${d.device.name}.` : (d.error || 'No button box found.');
+  $('btStatus').textContent = 'USB: ' + (!d.available ? 'button support is not installed (npm install node-hid).'
+    : d.connected ? `connected: ${d.device.name}.` : (d.error ? d.error[0].toLowerCase() + d.error.slice(1) + '.' : 'no button box found.'));
+  const w = d.wifi || {}, ago = w.seen ? Math.round((Date.now() - w.seen) / 1000) : null;
+  $('btWifi').textContent = 'Wi-Fi box: ' + (!w.hasKey ? 'no key yet. Create one for it to use.'
+    : w.connected ? `connected (${w.ip}), last heard ${ago} s ago.`
+    : w.seen ? `not connected (last heard ${new Date(w.seen).toLocaleTimeString()}).` : 'not connected.');
+  $('btWifiKey').textContent = w.hasKey ? 'New key' : 'Create key';
+  $('btWifiForget').hidden = !w.hasKey;
   if (d.devices && d.devices.length > 1) {
     $('btDevice').hidden = false;
     $('btDevice').innerHTML = '';
@@ -101,6 +107,19 @@ function btDraw(d) {
 $('btSelected').onchange = () => btCall({ selected: $('btSelected').value }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
 $('btSwFlash').onchange = () =>
   btCall({ switchFlash: $('btSwFlash').checked }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
+$('btWifiKey').onclick = async () => {
+  if ($('btWifiKey').textContent === 'New key' && !confirm('Make a new key? The Wi-Fi box stops working until it has the new one.')) return;
+  try {
+    const d = await btCall({ wifiKey: true });
+    btDraw(d);
+    $('btWifiNewKey').textContent = d.newKey; $('btWifiNew').hidden = false;
+  } catch (e) { log('Buttons: ' + e.message, 'e'); }
+};
+$('btWifiForget').onclick = () => {
+  if (!confirm('Remove the Wi-Fi box key? The box stops working until it has a new one.')) return;
+  $('btWifiNew').hidden = true;
+  btCall({ wifiKey: false }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
+};
 $('btDevice').onchange = () => btCall({ device: $('btDevice').value }).then(btDraw).catch(e => log('Buttons: ' + e.message, 'e'));
 btCall().then(btDraw).catch(() => {});
 setInterval(async () => { try { btDraw(await (await fetch('/api/buttons')).json()); } catch {} }, 500);

@@ -13,7 +13,8 @@ working with the page closed.
   You can also listen to it live from your PC, or, for a direct connection such as a turntable, from
   any phone or computer on your network, in stereo. The page also shows how hard the controller's
   computer is working (CPU, temperature on a Pi, memory).
-- A **USB button box** (an arcade joystick kit) or game controller: map each button to any action
+- A **USB button box** (an arcade joystick kit) or game controller: map each button to any action.
+  The box can also go on **Wi-Fi** with an ESP32 in place of its USB board
 - **Several Times Gates**, each with its own screens and settings
 
 ![The controller page, showing the Weather plugin on the five screens](docs/screenshots/overview.png)
@@ -241,6 +242,14 @@ Optional extras:
   come in many cheap arcade DIY kits. Other USB gamepads and joysticks should also work: the
   controller reads the raw USB input, so any joystick, D-pad or button just appears on the page when
   pressed, with no setup file to write. It works through `node-hid`, which `npm install` installs.
+- **Wi-Fi button box:** replace the box's USB board with an ESP32 that reads the buttons and sends
+  each press to the controller, so the box can sit anywhere in the house on a phone charger. It
+  reports the same inputs as the USB board, so the buttons keep their actions. In the Buttons card,
+  click **Create key** (from the controller's computer or one it trusts) and put the key in the
+  ESP32's settings. The card shows when the box was last heard from. The box sends
+  `POST /api/buttons/input` `{ "id": "b5.4", "down": true }` on each press and release, and
+  `POST /api/buttons/heartbeat` `{ "held": [...] }` every 10 seconds, both with
+  `Authorization: Bearer <key>`. A USB box and a Wi-Fi box can be used at the same time.
 
 ## Running on a Raspberry Pi
 

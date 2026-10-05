@@ -6,9 +6,12 @@
 // With several Times Gates, the box has a selected one: the "Switch Times Gate" action moves to the
 // next (it flashes its edge light), and buttons not tied to a particular
 // Times Gate act on the selected one.
+// A Wi-Fi button box (an ESP32 in place of the USB encoder) posts each press and release instead,
+// using the same input ids, so it shares the assignments. It needs the key made in the Buttons card.
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 let HID = null;
 try { HID = require('node-hid'); } catch {}
 
@@ -16,7 +19,8 @@ const CONF_FILE = path.join(__dirname, 'data', 'buttons.json');
 const HOLD_MS = 800;
 // inputs: { id: { name, press, hold, unit } } — unit: a Times Gate id, 'all', or null (the selected one)
 // selected: the Times Gate the box controls (null: the first). switchFlash: feedback on switching.
-let conf = { device: null, inputs: {}, selected: null, switchFlash: true };
+// wifiKey: what the Wi-Fi box sends as "Authorization: Bearer <key>" (never sent to the page).
+let conf = { device: null, inputs: {}, selected: null, switchFlash: true, wifiKey: null };
 try { conf = { ...conf, ...JSON.parse(fs.readFileSync(CONF_FILE, 'utf8')) }; } catch {}
 const save = () => { fs.mkdirSync(path.dirname(CONF_FILE), { recursive: true }); fs.writeFileSync(CONF_FILE, JSON.stringify(conf, null, 2)); };
 const log = (...a) => console.log(new Date().toLocaleTimeString(), '[buttons]', ...a);
@@ -41,7 +45,7 @@ function connect() {
     dev = new HID.HID(d.path);
   } catch (e) { error = `Could not open ${d.product || devKey(d)}: ${e.message}`; return; }
   devInfo = { key: devKey(d), name: (d.product || 'Controller').trim().replace(/\s+/g, ' ') };
-  error = null; baseline = null; down = new Map();
+  error = null; baseline = null; dropAll('usb');
   log(`Connected to ${devInfo.name} (${devInfo.key}).`);
   dev.on('data', onReport);
   dev.on('error', e => {
@@ -93,13 +97,14 @@ function onReport(buf) {
   const r = [...buf];
   if (!baseline) { baseline = r; return; }  // first report = nothing pressed
   const now = Date.now(), on = new Set(activeInputs(r));
-  for (const id of on) if (!down.has(id)) pressed(id, now);
-  for (const [id, st] of down) if (!on.has(id)) released(id, st);
+  for (const id of on) if (!down.has(id)) pressed(id, now, 'usb');
+  for (const [id, st] of down) if (st.src === 'usb' && !on.has(id)) released(id, st);
 }
 
-function pressed(id, now) {
+// src: 'usb' or 'wifi', so each box only releases its own presses
+function pressed(id, now, src) {
   if (!conf.inputs[id]) { conf.inputs[id] = { name: defaultName(id), press: null, hold: null }; save(); }
-  const b = conf.inputs[id], st = { at: now, held: false, timer: null };
+  const b = conf.inputs[id], st = { at: now, held: false, timer: null, src };
   down.set(id, st);
   last = { id, at: now, kind: 'press' };
   if (!b.hold) return fire(id, b.press, 'press');          // no hold action: act straight away
@@ -110,6 +115,55 @@ function released(id, st) {
   clearTimeout(st.timer);
   const b = conf.inputs[id];
   if (b && b.hold && !st.held) fire(id, b.press, 'press');
+}
+// Forget one box's presses without running anything (it was unplugged or went quiet).
+function dropAll(src) {
+  for (const [id, st] of down) if (st.src === src) { clearTimeout(st.timer); down.delete(id); }
+}
+
+// ---------- the Wi-Fi button box ----------
+// POST /api/buttons/input { id, down } on each change, and /api/buttons/heartbeat { held: [ids] }
+// every 10 seconds. A release lost on the way is caught by the next heartbeat; no word for 30
+// seconds lets go of everything it held.
+const WIFI_QUIET_MS = 30000;
+const INPUT_ID = /^(b\d{1,2}\.[0-7]|a\d{1,2}[+-]|h\d{1,2}\.[0-7])$/;
+let wifi = { seen: 0, ip: null };
+const wifiConnected = () => Date.now() - wifi.seen < WIFI_QUIET_MS;
+
+// Throws (with an HTTP status) unless the header carries the key.
+function checkKey(header) {
+  if (!conf.wifiKey) throw Object.assign(new Error('No Wi-Fi box key yet: create one in the Buttons card.'), { status: 403 });
+  const got = /^Bearer\s+(\S+)$/i.exec(header || '')?.[1] || '';
+  const hash = s => crypto.createHash('sha256').update(s).digest();
+  if (!crypto.timingSafeEqual(hash(got), hash(conf.wifiKey))) throw Object.assign(new Error('Wrong key.'), { status: 401 });
+}
+function heard(ip) {
+  if (!wifiConnected()) log(`Wi-Fi button box connected (${ip}).`);
+  wifi = { seen: Date.now(), ip };
+}
+function wifiInput(id, isDown, ip) {
+  if (!INPUT_ID.test(String(id))) throw Object.assign(new Error('Unknown input id.'), { status: 400 });
+  heard(ip);
+  const st = down.get(id);
+  if (isDown && !st) pressed(id, Date.now(), 'wifi');
+  else if (!isDown && st && st.src === 'wifi') released(id, st);
+}
+// Only releases: a button already held when the box (re)connects doesn't run anything until pressed again.
+function wifiHeartbeat(held, ip) {
+  heard(ip);
+  const now = new Set(Array.isArray(held) ? held.map(String) : []);
+  for (const [id, st] of down) if (st.src === 'wifi' && !now.has(id)) released(id, st);
+}
+function checkQuiet() {
+  if (!wifi.seen || wifiConnected() || ![...down.values()].some(st => st.src === 'wifi')) return;
+  log('Wi-Fi button box went quiet: letting go of its buttons.');
+  dropAll('wifi');
+}
+// Makes a new key (returned once, for the box's secrets.h), or removes it with off.
+function setWifiKey(off) {
+  conf.wifiKey = off ? null : crypto.randomBytes(12).toString('base64url');
+  save();
+  return conf.wifiKey;
 }
 // ---------- the selected Times Gate ----------
 function selectedUnit() {
@@ -139,7 +193,8 @@ function status(withDevices = false) {
   const list = HID && withDevices ? (() => { try { return HID.devices().filter(isController).map(d => ({ key: devKey(d), name: (d.product || '').trim().replace(/\s+/g, ' ') })); } catch { return []; } })() : [];
   const uniq = [...new Map(list.map(d => [d.key, d])).values()];
   return { available: !!HID, connected: !!dev, device: devInfo, devices: uniq, error, inputs: conf.inputs,
-    down: [...down.keys()], last, selected: selectedUnit()?.id || null, switchFlash: conf.switchFlash };
+    down: [...down.keys()], last, selected: selectedUnit()?.id || null, switchFlash: conf.switchFlash,
+    wifi: { hasKey: !!conf.wifiKey, connected: wifiConnected(), seen: wifi.seen || null, ip: wifi.ip } };
 }
 function setInput(id, o) {
   const b = conf.inputs[id];
@@ -165,9 +220,11 @@ function useDevice(key) {
 
 function init(run, eng) {
   runAction = run; engine = eng;
+  setInterval(checkQuiet, 5000);
   if (!HID) { error = 'node-hid is not installed (npm install node-hid)'; return; }
   connect();
   setInterval(connect, 5000);  // plugged in later, or unplugged and back
 }
 
-module.exports = { init, status, setInput, setOptions, forget, useDevice, SWITCH_ACTION };
+module.exports = { init, status, setInput, setOptions, forget, useDevice, SWITCH_ACTION,
+  checkKey, wifiInput, wifiHeartbeat, setWifiKey };
