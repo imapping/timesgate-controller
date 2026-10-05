@@ -40,6 +40,8 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
   treated as local (allowed to change setup and tokens), for a Pi with no screen.
 - `scripts/install-pi.sh`: installs it on a Raspberry Pi as a systemd service (run over SSH from the PC).
 - `scripts/install-kiosk.sh`: shows the Now Playing page full-screen on a screen plugged into the Pi (cage + Chromium on tty1, no desktop).
+- `claude-mod/timesgate-usage/`: a Claude Code mod (function hooks) that POSTs the session and weekly usage
+  (`session.measure`) to `/api/claude/usage`, from the desktop app too. Its `url` option is the controller's address.
 - `examples/hello/`: a minimal plugin to copy.
 - `hardware/screen-case/`: an OpenSCAD case (and STLs) for the 7" HDMI screen that shows Now Playing.
 

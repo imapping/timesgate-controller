@@ -227,7 +227,9 @@ all work without setup except:
   }
   ```
 
-  The status line entry is optional. It adds your session and weekly usage.
+  The status line entry is optional. It adds your session and weekly usage, but only in the terminal.
+  For your usage from the **desktop app** too, use the `timesgate-usage` mod in `claude-mod/` instead of
+  the status line (see [its Read me](claude-mod/README.md)). It's one line in the same settings file.
 
 ### 7. Updating
 
@@ -325,6 +327,8 @@ line, keep `claude-statusline.js` on the PC and tell it where the Pi is, in `~/.
 ```json
 { "env": { "TIMESGATE_URL": "http://192.168.1.128:8080" } }
 ```
+
+With the `timesgate-usage` mod instead, set its address to the Pi's (see [claude-mod/README.md](claude-mod/README.md)).
 
 **Logging in to Spotify on a Pi:** Spotify only sends the login back to `127.0.0.1`. Copying your
 settings from a PC keeps an existing login. For a new one, connect with a tunnel so the PC's
