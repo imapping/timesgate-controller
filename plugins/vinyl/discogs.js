@@ -224,8 +224,16 @@ module.exports = (tg, s) => {
       tracks: tracks.map(t => ({ pos: t.pos, where: wherePos(t.pos), title: t.title, artist: t.artists ? t.artists.map(shown).join(', ') : artist, dur: t.dur || null })) };
   }
 
+  // Whether the track at this position is the last one on its side of the record (id: the Discogs release).
+  function lastOnSide(id, pos) {
+    const r = ready() && cache.user === s.discogs.user ? cache.releases[id] : null;
+    if (!r?.tracks || !pos) return false;
+    const k = sideOf(pos), on = r.tracks.filter(t => sideOf(t.pos) === k);
+    return on.length > 0 && on[on.length - 1].pos === String(pos);
+  }
+
   return {
-    match, configure, wherePos, find, records, side,
+    match, configure, wherePos, find, records, side, lastOnSide,
     refresh: () => { if (!ready()) throw Object.assign(new Error('Add your Discogs username and token first.'), { status: 400 }); sync().catch(() => {}); },
     // (The token never goes to the page.)
     state: () => {

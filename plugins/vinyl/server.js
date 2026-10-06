@@ -479,7 +479,10 @@ module.exports = tg => {
     if (res.startedAt) t.identifiedAt = res.startedAt;   // (when the track began, worked out from where the clip was in it)
     t.startKnown = !!(res.startedAt || res.picked);
     const same = !!track && sameSong(track, t);
-    if (same && !res.fix) { t.title = track.title; t.artist = track.artist; t.identifiedAt = track.identifiedAt; t.startKnown = track.startKnown; }   // (keep its name, and when it started)
+    if (same && !res.fix) {   // (keep its name, when it started, and which record it's on)
+      t.title = track.title; t.artist = track.artist; t.identifiedAt = track.identifiedAt; t.startKnown = track.startKnown;
+      if (!res.rec && track.discogs) for (const k of ['album', 'year', 'pos', 'where', 'discogs', 'art', 'last']) t[k] = track[k];
+    }
     // The record in the Discogs collection with this song: its album, year and cover replace the
     // service's (which often names a compilation), and it says where the song is on the record.
     const own = res.rec || (same ? null : discogs.match(t.title, t.artist, now));
@@ -487,6 +490,9 @@ module.exports = tg => {
       t.album = own.album; t.year = own.year || t.year; t.pos = own.pos; t.where = own.where; t.discogs = own.link;
       if (own.cover) { t.artAlt = t.art; t.art = own.cover; }
     }
+    // The last track on its side, when the record is known (screen 5 says so: time to turn it over soon).
+    const release = Number(/\/release\/(\d+)/.exec(t.discogs || '')?.[1]);
+    if (release && t.pos) t.last = discogs.lastOnSide(release, t.pos);
     // Check again around the track's end if no gap is heard (e.g. tracks that run into each other).
     const checkAt = duration => now + Math.max(same ? 2 * 60000 : 60000,
       (duration && pos != null && duration < 20 * 60000 ? (duration - pos) / (res.realTime ? 1 : speedRatio()) - s.clipSec * 1000 : 4 * 60000) + 15000);   // a fast deck ends songs sooner
@@ -606,7 +612,7 @@ module.exports = tg => {
     used: used(), cap: s.cap, acrUsed: acrUsed(), acrCap: s.acrCap,
     autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec, rpm: s.rpm,
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link,
-      where: track.where, discogs: track.discogs },
+      where: track.where, discogs: track.discogs, last: !!track.last },
     discogs: discogs.state(),
     history: historyWithNotes(),
     lastClip: lastClip && { at: lastClip.at, outcome: lastClip.outcome, cleaned: lastClip.cleaned, speedFixed: lastClip.speedFixed },

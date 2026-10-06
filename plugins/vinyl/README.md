@@ -5,7 +5,8 @@ and shows it:
 - **Screen 1:** the album art.
 - **Screens 2–3:** the title.
 - **Screen 4:** the artist.
-- **Screen 5:** a spinning record, with the album and year (and the side and track, with Discogs).
+- **Screen 5:** a spinning record, with the album and year (and the side and track, with Discogs). On the last track
+  of a side it says so ("Side B · last track") on a band of colour, so you know to turn the record over soon.
 
 Matches missing a Spotify link or cover are looked up on Spotify (through the Spotify plugin, if it's
 connected), then in Apple's iTunes Search for the cover. Titles that arrive all in lowercase get
