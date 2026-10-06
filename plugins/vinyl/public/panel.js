@@ -60,6 +60,19 @@
     $p('#vnAutoOff').value = s.autoOffMin;
     $p('#vnAutoShow').checked = s.autoShow;
     $p('#vnClean').checked = s.cleanClip;
+    // Stylus: hours played against the replacement interval, as a bar and in words.
+    const sy = s.stylus, used = sy.hours / sy.limit;
+    const level = used >= 1 ? ['err', 'time to replace it'] : used >= 0.9 ? ['warn', 'replace it soon'] : ['ok', ''];
+    $p('#vnStylusOn').checked = sy.on;
+    $p('#vnStylusBox').hidden = !sy.on;
+    $p('#vnStylusText').textContent = `${sy.hours.toLocaleString(undefined, { maximumFractionDigits: 1 })} of ${sy.limit} hours played since `
+      + new Date(sy.since).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) + (level[1] ? ` · ${level[1]}` : '');
+    $p('#vnStylusBar').style.width = Math.min(100, used * 100) + '%';
+    $p('#vnStylusBar').style.background = level[0] === 'ok' ? 'var(--ok)' : level[0] === 'warn' ? '#d99a00' : 'var(--err)';   // green, amber, red (with the words)
+    if (document.activeElement !== $p('#vnStylusLimit')) $p('#vnStylusLimit').value = sy.limit;
+    $p('#vnStylusNote').textContent = !sy.direct ? 'Not counting: the input isn\u2019t marked as a direct connection (Input and live listening), so it could be a room microphone.'
+      : 'Counted while the needle is on a record (music, the quiet between tracks and the run-out), from the turntable input\u2019s level, so it\u2019s approximate.';
+    $p('#vnStylusWarn').textContent = sy.on && used >= 0.9 ? `Stylus: ${Math.round(sy.hours)} of ${sy.limit} hours, ${level[1]}.` : '';
     $p('#vnClipSec').value = String(s.clipSec || 12);
     if (document.activeElement !== $p('#vnRpm')) $p('#vnRpm').value = s.rpm;
     drawPick();
@@ -303,4 +316,7 @@
   $p('#vnRpm').onchange = e => call('options', { rpm: Number(e.target.value) });
   $p('#vnClipSec').onchange = e => call('options', { clipSec: Number(e.target.value) });
   $p('#vnClean').onchange = e => call('options', { cleanClip: e.target.checked });
+  $p('#vnStylusOn').onchange = e => call('options', { stylusOn: e.target.checked });
+  $p('#vnStylusLimit').onchange = e => call('options', { stylusLimit: Number(e.target.value) });
+  $p('#vnStylusNew').onclick = () => { if (confirm('Fitted a new stylus? The playing time starts again from 0 hours.')) call('options', { stylusNew: true }); };
 })();

@@ -32,6 +32,7 @@
   (a turntable speed app, with the phone on the platter), or enter its measured speed under <b>Settings → Turntable speed</b>.</p>
 <div class="row">
   <span id="vnUsage" class="hint" style="margin:0"></span>
+  <span id="vnStylusWarn" class="hint" style="margin:0;font-weight:600"></span>
 </div>
 <div class="row" id="vnClipRow" style="display:none">
   <span class="hint" style="margin:0">Last clip sent <span id="vnClipInfo"></span> · <a id="vnClipLink" href="/api/vinyl/clip" target="_blank" rel="noopener" style="color:inherit">listen</a> (from the controller's computer or a trusted one)</span>
@@ -157,6 +158,20 @@
     </div>
     <label for="vnClean">Clean up clips</label>
     <div class="vn-v"><label title="Cuts everything below 120 Hz, lifts voices a little, and evens out the level before sending."><input type="checkbox" id="vnClean"> Cut bass boom, rumble and mains hum (helps with a microphone near big speakers)</label></div>
+
+    <div class="vn-group">Stylus</div>
+    <label for="vnStylusOn">Playing time</label>
+    <div class="vn-v"><label title="Counts the time the needle is on a record, from the turntable input's level, even with Vinyl switched off. Only for an input marked as a direct connection."><input type="checkbox" id="vnStylusOn"> Count how long the turntable has played, to know when the stylus needs replacing</label></div>
+    <div class="vn-wide" id="vnStylusBox">
+      <div class="row" style="margin-bottom:4px"><span id="vnStylusText" style="font-weight:600"></span></div>
+      <div style="height:6px;border-radius:4px;background:var(--line);overflow:hidden;max-width:420px"><div id="vnStylusBar" style="height:100%;width:0;border-radius:4px"></div></div>
+      <div class="row" style="margin-top:8px">
+        <label for="vnStylusLimit" class="vn-unit">Replace it after</label>
+        <input type="number" id="vnStylusLimit" min="10" max="5000" style="width:84px"><span class="vn-unit">hours (the turntable's manual says)</span>
+        <button id="vnStylusNew" title="Start counting again from 0 hours">New stylus fitted</button>
+      </div>
+      <p class="hint" id="vnStylusNote" style="margin:4px 0 0"></p>
+    </div>
   </div>
 </details>
 

@@ -95,6 +95,29 @@ module.exports = tg => {
   const sameSong = (a, b) => discogsFor.normTitle(a.title) === discogsFor.normTitle(b.title) && discogsFor.normArtist(a.artist) === discogsFor.normArtist(b.artist);
   let cue = null, cueEnded = false;   // cueEnded: the chosen side ran out while listening
   const canGo = () => canOwn() || !!cue;
+
+  // ---- stylus hours: roughly how long the needle has been on a record, for knowing when to replace it ----
+  // Counted from the turntable input's level (averaged over about a second): above NEEDLE_DB the needle is
+  // in a groove (music, the quiet between tracks and the run-out all count); a lifted arm is near silence.
+  // It listens in the background even with Vinyl switched off, but only to an input marked as a direct
+  // connection (a turntable, never a room microphone), and only for its level.
+  const NEEDLE_DB = -70, FRAME_MS = 512 / 22.05;
+  s.stylus ??= { on: true, ms: 0, since: Date.now(), limit: 300 };   // limit: hours before replacing it
+  let stopStylus = null, stylusPow = 0, stylusUnsaved = 0;
+  function onStylus(f) {
+    stylusPow = stylusPow * (1 - 1 / 43) + 10 ** (f.db / 10) / 43;
+    if (10 * Math.log10(stylusPow || 1e-10) <= NEEDLE_DB) return;
+    s.stylus.ms += FRAME_MS;
+    if ((stylusUnsaved += FRAME_MS) >= 60000) { stylusUnsaved = 0; tg.save(); }   // (saved once a minute of play)
+  }
+  const direct = () => { try { return !!tg.mic.status().shared; } catch { return false; } };
+  function syncStylus() {
+    const want = s.stylus.on && direct();
+    if (want && !stopStylus) { stylusPow = 0; stopStylus = tg.mic.listen(onStylus); }
+    else if (!want && stopStylus) { stopStylus(); stopStylus = null; }
+  }
+  tg.after(3000, syncStylus);
+  tg.every(30000, syncStylus);   // (the input can change, or be marked as a direct connection later)
   // Start the listening log with the songs identified before it existed (once).
   if (!s.historyLogged && tg.listening.available) {
     for (const h of [...s.history].reverse()) {
@@ -579,6 +602,7 @@ module.exports = tg => {
     hasToken: chosen().length > 0 || canGo(),   // a service can be used, or there are learned tracks or a chosen side
     cue: cue && { id: cue.id, album: cue.album, artist: cue.artist, side: cue.side, index: cue.index, tracks: cue.tracks.map(t => ({ pos: t.pos, title: t.title, dur: t.dur })) },
     learn: prints.state(),
+    stylus: { on: s.stylus.on, hours: Math.round(s.stylus.ms / 360000) / 10, since: s.stylus.since, limit: s.stylus.limit, counting: !!stopStylus, direct: direct() },
     used: used(), cap: s.cap, acrUsed: acrUsed(), acrCap: s.acrCap,
     autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec, rpm: s.rpm,
     track: track && { title: track.title, artist: track.artist, album: track.album, year: track.year, art: track.art, link: track.link,
@@ -620,6 +644,10 @@ module.exports = tg => {
         if (typeof b.cleanClip === 'boolean') s.cleanClip = b.cleanClip;
         if (typeof b.learn === 'boolean') { s.learn = b.learn; if (!b.learn) seg = null; }
         if (b.resetRecognised === true) s.localHits = 0;   // start the "recognised here" count again
+        // Stylus hours: { stylusOn }, { stylusLimit } (hours), { stylusNew: true } (a new one fitted: start again)
+        if (typeof b.stylusOn === 'boolean') { s.stylus.on = b.stylusOn; syncStylus(); }
+        if (Number.isFinite(b.stylusLimit) && b.stylusLimit >= 10 && b.stylusLimit <= 5000) s.stylus.limit = Math.round(b.stylusLimit);
+        if (b.stylusNew === true) { s.stylus.ms = 0; s.stylus.since = Date.now(); tg.log('New stylus fitted: counting from 0 hours.'); }
         if (CLIP_SECS.includes(b.clipSec)) s.clipSec = b.clipSec;
         if (Number.isFinite(b.rpm) && b.rpm >= 30 && b.rpm <= 37) s.rpm = Math.round(b.rpm * 100) / 100;
         tg.save();
@@ -688,6 +716,6 @@ module.exports = tg => {
       listen: { label: 'identify records on/off', run: ({ on, unit } = {}) => ((on ?? !active) ? turnOn(unit === 'all' ? undefined : unit) : turnOff()) },
       now: { label: 'identify what\'s playing now', run: ({ unit } = {}) => identifyNow(unit === 'all' ? undefined : unit) },
     },
-    stop: () => { discogs.stop(); seg = null; prints.stop(); active = false; stopMic = null; stopWave = null; for (const res of waveClients) res.end(); waveClients.clear(); },
+    stop: () => { if (stopStylus) { stopStylus(); stopStylus = null; } tg.save(); discogs.stop(); seg = null; prints.stop(); active = false; stopMic = null; stopWave = null; for (const res of waveClients) res.end(); waveClients.clear(); },
   };
 };

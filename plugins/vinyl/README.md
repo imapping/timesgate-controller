@@ -133,6 +133,18 @@ The star next to a song in the history makes it a favourite; the Listening repor
 Each song in the card's history has a **Note** button: mark it as Skips, Crackles, Poor quality, Needs cleaning, Wrong song, Wrong album or Wrong Discogs entry, and
 add a comment. Notes are saved with the play in the listening log, and the Listening reports card lists them.
 
+## Stylus hours
+
+Styluses wear out (the Audio-Technica AT-LP120XUSB's manual says to replace it every 300 hours), so Vinyl keeps
+an approximate count of how long the needle has been on a record. Settings → **Stylus** shows the hours played
+since the stylus was fitted, as a bar that turns amber at 90% and red past the limit, with a warning line at the top
+of the card. **New stylus fitted** starts again from 0, and the limit can be changed.
+
+- It counts from the turntable input's level, averaged over about a second: music, the quiet between tracks
+  and the run-out groove count; a lifted arm doesn't.
+- It keeps counting with Vinyl switched off, by listening to the input in the background, but **only for an input
+  marked as a direct connection** (so never a room microphone), and only for its level.
+
 ## Input and live listening
 
 The card has its own copy of the Microphone card's controls: which input to use, a 10-second test,
