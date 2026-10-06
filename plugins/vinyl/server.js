@@ -619,6 +619,7 @@ module.exports = tg => {
         if (typeof b.autoShow === 'boolean') s.autoShow = b.autoShow;
         if (typeof b.cleanClip === 'boolean') s.cleanClip = b.cleanClip;
         if (typeof b.learn === 'boolean') { s.learn = b.learn; if (!b.learn) seg = null; }
+        if (b.resetRecognised === true) s.localHits = 0;   // start the "recognised here" count again
         if (CLIP_SECS.includes(b.clipSec)) s.clipSec = b.clipSec;
         if (Number.isFinite(b.rpm) && b.rpm >= 30 && b.rpm <= 37) s.rpm = Math.round(b.rpm * 100) / 100;
         tg.save();
@@ -652,7 +653,7 @@ module.exports = tg => {
       // Forget a learned track: { id }, or { id: 'all' } (from the controller's computer or a trusted one).
       'POST /forget': ctx => {
         const id = ctx.body?.id;
-        if (id === 'all') localOnly(ctx);
+        if (id === 'all') { localOnly(ctx); s.localHits = 0; tg.save(); }   // (starting over: the count too)
         prints.forget(id);
         return { ...state(), tracks: prints.list(ctx.body?.q) };
       },
