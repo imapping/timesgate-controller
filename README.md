@@ -83,6 +83,10 @@ service altogether: **choose the record and side** you're about to play from you
 
 ![Choosing the record yourself: the Arlo Guthrie records in the Discogs collection, each with buttons for its sides](docs/screenshots/vinyl-pick.png)
 
+It also keeps an approximate count of the **stylus hours** (the needle's time on records), so you know when to replace it:
+
+![The stylus counter: hours played since the stylus was fitted, out of 300, with a New stylus fitted button](docs/screenshots/vinyl-stylus.png)
+
 ![The Vinyl card's settings: service, monthly limits, switch-off time, turntable speed, clip length and clean-up](docs/screenshots/vinyl-settings.png)
 
 **Now Playing:** a full-screen page for a separate display (a small HDMI screen on the Pi, a tablet or a TV),
