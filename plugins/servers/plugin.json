@@ -1,0 +1,11 @@
+{
+  "id": "servers",
+  "name": "Servers",
+  "version": "1.0.0",
+  "description": "The health of your servers: up or down, CPU, memory, disks, databases and pending restarts, from a small health page on each (an ASP.NET handler for IIS is included). Lights up the edge when one has a problem.",
+  "author": "TimesGate",
+  "order": 55,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"],
+  "liveLabel": "Keep it updated (checks every minute)"
+}

@@ -49,6 +49,11 @@ and who's batting and pitching, with the rainbow edge light when your team score
 
 ![Baseball after a game: the Braves and Dodgers logos with the final score, Dodgers win, runs, hits and errors, the series and the next game](docs/screenshots/screens-mlb.png)
 
+**Servers:** keeps an eye on your own servers: which are up, and their CPU, memory, disks and databases, with the
+rainbow edge light when one goes down. A small health page goes on each server (`health.ashx` for IIS / ASP.NET is included).
+
+![Servers: 2 of 4 up, two down (connection refused, key refused), and two with full disks and a failed database](docs/screenshots/screens-servers.png)
+
 **Music visualizer:** dances in time with the beat it hears through the microphone.
 
 ![Music visualizer bars](docs/screenshots/screens-visualizer.png)
@@ -217,6 +222,8 @@ all work without setup except:
   fine-grained token with **Administration: Read-only** (see the plugin's Read me).
 - **Mowing:** create an API key on Mowing Tracker's Setup page and paste it into the Mowing card from the
   computer running the controller.
+- **Servers:** put `plugins/servers/iis/health.ashx` on each IIS server with a `HealthKey` in its web.config (see the
+  plugin's Read me), then add each server and its key in the Servers card from the computer running the controller.
 - **Claude status:** tell [Claude Code](https://claude.com/claude-code) to send its events to the
   controller. Add to `~/.claude/settings.json` on the same computer, one entry for each of
   `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Notification`, `Stop`,
@@ -383,6 +390,7 @@ Some plugins use online services. Each user sets up their own account or key; no
   own adds visitors, clones and your contribution graph.
 - **Baseball (MLB):** uses MLB's public stats feed (statsapi.mlb.com), no key needed; its data is for personal, non-commercial use.
 - **Mowing:** uses [Mowing Tracker](https://www.mowingtracker.com)'s read-only status API with your own API key.
+- **Servers:** talks only to your own servers' health pages.
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.
 
 Every song Vinyl identifies, and every song you play on Spotify (once it has played for 30 seconds),

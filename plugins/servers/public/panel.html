@@ -1,0 +1,40 @@
+<style>
+  .sv-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  #plugin-servers table.wx td { vertical-align: top; }
+</style>
+<div class="row">
+  <button id="svCheck" title="Check every server now instead of waiting for the next minute">Check now</button>
+  <span id="svInfo" class="hint" style="margin:0"></span>
+</div>
+<div id="svList"></div>
+
+<details class="vn-settings" id="svAddBox" style="border-top:1px solid var(--line);margin-top:10px">
+  <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);padding:10px 0 4px">Add a server</summary>
+  <p class="hint" style="margin-top:4px">Put the health page on the server first (for IIS: <code>health.ashx</code>, see the Read me), then enter its address and the
+    <b>HealthKey</b> from its web.config, from your computer (the one running the controller, or one it trusts; not a phone).</p>
+  <div class="row">
+    <input type="text" id="svName" placeholder="Name, e.g. Web 1" style="width:140px" maxlength="40" aria-label="Server name">
+    <input type="url" id="svUrl" placeholder="https://server/health.ashx" style="width:280px" spellcheck="false" aria-label="Health page address">
+    <input type="password" id="svKey" placeholder="HealthKey" style="width:200px" autocomplete="off" spellcheck="false" aria-label="Health key">
+  </div>
+  <div class="row">
+    <label title="For a server with its own (self-signed) certificate on your network"><input type="checkbox" id="svInsecure"> Accept a self-signed certificate</label>
+    <button id="svAdd" class="primary">Add server</button>
+  </div>
+</details>
+
+<details class="vn-settings" id="svLimitsBox">
+  <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);padding:10px 0 4px">Limits and alerts</summary>
+  <div class="row">
+    <label>Warn at CPU <input type="number" id="svLimCpu" min="50" max="100" style="width:64px">%</label>
+    <label>memory <input type="number" id="svLimMem" min="50" max="100" style="width:64px">%</label>
+    <label>disk <input type="number" id="svLimDisk" min="50" max="100" style="width:64px">%</label>
+    <label>red at disk <input type="number" id="svLimDiskCrit" min="50" max="100" style="width:64px">%</label>
+  </div>
+  <div class="row"><label><input type="checkbox" id="svRainbow"> Light up the edge rainbow when a server goes down or has a problem</label></div>
+</details>
+
+<div data-tg-controls></div>
+<p class="hint">Screens: how many servers are up and which have problems · then a server each, the worst first (up to four): its CPU, memory and
+  fullest disk, and anything else wrong (a database that failed, a restart Windows is waiting for). CPU counts as busy when the last three
+  checks average over the limit. It checks every minute, even when something else is on the screens. The keys stay on the controller.</p>

@@ -35,7 +35,7 @@ Web controller for a Divoom Times Gate (five 128×128 screens), running as a Nod
   only), kept in `data/buttons.json` as `wifiKey`, and never sent to the page.
 - `public/`: the page. `index.html` holds the core controls; `plugins.js` holds the `TG` page API
   and the plugin loader.
-- `plugins/<id>/`: features as plugins (claude, spotify, vinyl, nowplaying, weather, visualizer, github, reports, mowing, mlb).
+- `plugins/<id>/`: features as plugins (claude, spotify, vinyl, nowplaying, weather, visualizer, github, reports, mowing, mlb, servers).
 - `data/`: plugin settings and secrets. Never serve these. `data/trusted.json` lists other computers
   treated as local (allowed to change setup and tokens), for a Pi with no screen.
 - `scripts/install-pi.sh`: installs it on a Raspberry Pi as a systemd service (run over SSH from the PC).
