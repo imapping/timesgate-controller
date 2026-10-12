@@ -48,7 +48,7 @@ Notes:
   better-sqlite3, like the listening log.
 - A track is only learned if it had a clear gap after it and one name. Tracks that run into each
   other without a gap aren't learned, and keep using the service. A gap is sound well under the music's
-  own level for over a second: with a loud input (a turntable's USB output, or line in) that's up to 22 dB
+  own level for over a second: with a loud input (a turntable's USB output, or line in) that's up to 16 dB
   under the music, so an older record's surface noise between tracks still counts as a gap.
 - The card's **Last** line says what happened to the last track's recording: learned, or why not (too
   short, no gap heard, two names), with the music's level and the gap level while listening.

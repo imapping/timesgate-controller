@@ -246,9 +246,9 @@ module.exports = tg => {
   }
 
   // Below this is quiet (a gap, when it lasts): 12 dB under the music, and under LOUD_DB, as suits a
-  // microphone. A loud input (a turntable's USB output, or line in) gets up to 22 dB under the music instead,
+  // microphone. A loud input (a turntable's USB output, or line in) gets up to 16 dB under the music instead,
   // since an older record's surface noise between tracks can stay above LOUD_DB there.
-  const quietDb = () => (avgDb == null ? LOUD_DB : Math.max(Math.min(LOUD_DB, avgDb - 12), avgDb - 22));
+  const quietDb = () => (avgDb == null ? LOUD_DB : Math.max(Math.min(LOUD_DB, avgDb - 12), avgDb - 16));
 
   function onFrame(f) {
     if (!active) return;
