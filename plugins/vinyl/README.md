@@ -75,7 +75,8 @@ Then press Start listening and lower the needle.
 - Discogs' track lengths are used to tell a quiet passage from the end of a track, and to move on
   when tracks run together without a gap. When it moves on that way, the recording is split at the
   quietest moment of the last 45 seconds (if it's clearly quieter than the music), so the track before
-  can still be learned.
+  can still be learned. If it isn't (tracks that run into each other), the track before isn't learned,
+  and the next one is recorded from when it's named.
 - The card lists the side's tracks with what's playing and what's next. If it gets out of step (the
   needle went down mid-side, a track was skipped), click **This is playing** on the right track.
 - Tracks named this way are learned like any others, so next time the record is recognised by

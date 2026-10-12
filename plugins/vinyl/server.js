@@ -344,9 +344,11 @@ module.exports = tg => {
     let best = 0, bestE = Infinity;
     for (let i = 0; i + 3 <= e.length; i++) { const w = (e[i] + e[i + 1] + e[i + 2]) / 3; if (w < bestE) { bestE = w; best = i; } }
     const median = [...e].sort((a, b) => a - b)[e.length >> 1], quietest = db(bestE);
-    if (db(median) - quietest < 10) { seg.mixed = true; seg.noGap = quietest; return; }
-    const cut = from + (best + 1.5) * BLOCK | 0;
-    const g = { ...seg, chunks: [all.subarray(0, cut)], n: cut, endAt: null, cutDb: quietest };
+    // Not clearly quieter (tracks that run into each other): the track before isn't learned, and the next
+    // one starts a fresh recording from now, missing its first moments but with none of the track before.
+    const clear = db(median) - quietest >= 10;
+    const cut = clear ? from + (best + 1.5) * BLOCK | 0 : all.length;
+    const g = { ...seg, chunks: [all.subarray(0, cut)], n: cut, endAt: null, cutDb: quietest, mixed: !clear, noGap: clear ? null : quietest };
     seg = { chunks: [all.slice(cut)], n: all.length - cut, label: null, mixed: false, endAt: null, endTime: 0, resumed: null };
     const keep = seg;
     seg = g; segClose();
