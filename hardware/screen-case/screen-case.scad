@@ -172,7 +172,11 @@ module fin() {
 }
 
 // ---------- output ----------
-if (part == "bezel") bezel();                                         // print face-down (as modelled)
+// The model's axes are seen from the front, with Z going away from you: a mirror image of OpenSCAD's
+// own, so each part needs one mirror on the way out or it prints back to front. The bezel is mirrored
+// left to right (its front stays on the bed); the back is mirrored through its depth, which also lays
+// it back-down. The fin is the same either way.
+if (part == "bezel") translate([A, 0, 0]) mirror([1, 0, 0]) bezel();          // print face-down
 else if (part == "back") translate([0, 0, zBack]) mirror([0, 0, 1]) back();   // print back-down
 else if (part == "fin") fin();                                        // print flat
 else if (part == "section") intersection() {   // a slice through the right-hand screws, to check the fit
