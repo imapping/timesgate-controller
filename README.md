@@ -362,8 +362,8 @@ To show another page, set `KIOSK_URL` before `bash`. To go back to the text logi
 after `bash`. If the picture is the wrong size, the screen may not be telling the Pi its resolution:
 add a mode to `/boot/firmware/cmdline.txt`, e.g. `video=HDMI-A-1:1024x600@60`, and reboot.
 If touch doesn't work: many screens have two USB sockets, one for power only and one marked **Touch**.
-Connect the Touch one to the Pi with a data cable (not a charge-only one). Check the Pi sees it with
-`grep -i touch /proc/bus/input/devices`; once it's listed, touch works.
+Connect the Touch one to the Pi with a data cable (not a charge-only one). `grep Name /proc/bus/input/devices`
+lists what the Pi sees: plugging the right socket in adds a line (often a maker's name, not the word "touch").
 A 3D-printable case for the 7" Duinotech XC9026 screen, with a stand and keyholes for a wall, is in
 [`hardware/screen-case`](hardware/screen-case).
 
