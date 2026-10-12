@@ -82,6 +82,11 @@
     $p('#vnLearnInfo').textContent = !L.available ? 'Not available on this computer (' + (L.error || 'no database') + ').'
       : !L.tracks ? 'Nothing learned yet.'
       : `${L.tracks.toLocaleString()} ${L.tracks === 1 ? 'track' : 'tracks'} learned (${L.minutes >= 120 ? Math.round(L.minutes / 60) + ' hours' : L.minutes + ' min'}, ${L.mb} MB) · recognised here ${L.saved.toLocaleString()} ${L.saved === 1 ? 'time' : 'times'}`;
+    // The last recording: learned, or why not; and the levels gaps are judged by while listening.
+    const lv = s.active && L.musicDb != null ? `Music ${L.musicDb} dB, a gap is under ${L.gapDb} dB.` : '';
+    const last = L.last ? `Last: ${L.last.title ? `${L.last.title} — ${L.last.artist}` : 'a track'}, ${L.last.outcome} (${new Date(L.last.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}).` : '';
+    $p('#vnLearnLast').textContent = [last, lv].filter(Boolean).join(' ');
+    $p('#vnLearnLastRow').hidden = !L.available || !L.on || !(last || lv);
     $p('#vnLearnShow').style.display = L.tracks || learnedOpen ? '' : 'none';
     $p('#vnLearnShow').textContent = learnedOpen ? 'Hide learned tracks' : 'Show learned tracks';
     $p('#vnLearned').hidden = !learnedOpen;

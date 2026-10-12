@@ -198,15 +198,18 @@ module.exports = (tg, s) => {
   let queue = Promise.resolve();
   // samples: Int16Array at 11.025 kHz, the whole track as heard; info: the match's details.
   // Skipped if it's already learned from at least as much sound (20 s more replaces it).
+  // Resolves what happened, in words ('learned', 'too short (20 s)'…), for the Vinyl card.
   function learn(samples, info) {
-    if (!db || !s.learn || !info?.title || !info.artist) return;
+    if (!db || !s.learn) return Promise.resolve('not learning');
+    if (!info?.title || !info.artist) return Promise.resolve('no name');
     const secs = samples.length / RATE;
-    if (secs < MIN_LEARN_S || secs > MAX_LEARN_S) return;
-    queue = queue.then(async () => {
+    if (secs < MIN_LEARN_S) return Promise.resolve(`too short (${Math.round(secs)} s)`);
+    if (secs > MAX_LEARN_S) return Promise.resolve(`too long (${Math.round(secs / 60)} min)`);
+    return queue = queue.then(async () => {
       const key = keyOf(info), old = db.prepare('SELECT id, secs FROM tracks WHERE key = ?').get(key);
-      if (old && old.secs >= secs - 20) return;
+      if (old && old.secs >= secs - 20) return 'already learned';
       const prints = await fingerprintLong(samples);
-      if (prints.length < secs * 5) return;   // mostly silence
+      if (prints.length < secs * 5) return 'mostly silence';
       db.transaction(() => {
         if (old) { db.prepare('DELETE FROM prints WHERE track = ?').run(old.id); db.prepare('DELETE FROM tracks WHERE id = ?').run(old.id); }
         const id = Number(db.prepare(`INSERT INTO tracks (key, title, artist, album, year, position, discogs, spotify, art, link, isrc, label, secs, rpm, hashes, learned_at, service)
@@ -219,7 +222,8 @@ module.exports = (tg, s) => {
       })();
       counts = null;
       tg.log(`Learned ${info.title} — ${info.artist} (${Math.round(secs)} s${old ? ', replacing a shorter recording' : ''}).`);
-    }).catch(e => tg.log('Learning failed:', e.message));
+      return old ? 'learned (replacing a shorter recording)' : 'learned';
+    }).catch(e => { tg.log('Learning failed:', e.message); return 'failed: ' + e.message; });
   }
 
   function forget(id) {

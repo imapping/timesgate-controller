@@ -47,7 +47,11 @@ Notes:
 - Fingerprints are kept in `data/vinyl-prints.db` (SQLite), about 1.5 MB for an LP. It needs
   better-sqlite3, like the listening log.
 - A track is only learned if it had a clear gap after it and one name. Tracks that run into each
-  other without a gap aren't learned, and keep using the service.
+  other without a gap aren't learned, and keep using the service. A gap is sound well under the music's
+  own level for over a second: with a loud input (a turntable's USB output, or line in) that's up to 22 dB
+  under the music, so an older record's surface noise between tracks still counts as a gap.
+- The card's **Last** line says what happened to the last track's recording: learned, or why not (too
+  short, no gap heard, two names), with the music's level and the gap level while listening.
 - Fingerprints are of your deck at its own speed, so the turntable speed correction isn't needed
   for them. If you change the **Turntable speed** setting later (after adjusting the deck), clips
   are converted to the old speed before matching, so what's learned still works.
@@ -69,7 +73,9 @@ Then press Start listening and lower the needle.
 - Each time a track starts after a gap, it's named as the next track on that side, straight away,
   with the album, cover and position. No clip is sent anywhere.
 - Discogs' track lengths are used to tell a quiet passage from the end of a track, and to move on
-  when tracks run together without a gap.
+  when tracks run together without a gap. When it moves on that way, the recording is split at the
+  quietest moment of the last 45 seconds (if it's clearly quieter than the music), so the track before
+  can still be learned.
 - The card lists the side's tracks with what's playing and what's next. If it gets out of step (the
   needle went down mid-side, a track was skipped), click **This is playing** on the right track.
 - Tracks named this way are learned like any others, so next time the record is recognised by

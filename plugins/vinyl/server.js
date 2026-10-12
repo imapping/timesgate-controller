@@ -245,6 +245,11 @@ module.exports = tg => {
     tg.log('Stopped:', status);
   }
 
+  // Below this is quiet (a gap, when it lasts): 12 dB under the music, and under LOUD_DB, as suits a
+  // microphone. A loud input (a turntable's USB output, or line in) gets up to 22 dB under the music instead,
+  // since an older record's surface noise between tracks can stay above LOUD_DB there.
+  const quietDb = () => (avgDb == null ? LOUD_DB : Math.max(Math.min(LOUD_DB, avgDb - 12), avgDb - 22));
+
   function onFrame(f) {
     if (!active) return;
     const now = Date.now();
@@ -252,7 +257,7 @@ module.exports = tg => {
     // don't restart the count (quieter mics hover near LOUD_DB). Gaps still go by each moment.
     power = power * (1 - 1 / 43) + 10 ** (f.db / 10) / 43;
     const smoothDb = 10 * Math.log10(power || 1e-10);
-    const quiet = f.db < Math.min(LOUD_DB, (avgDb ?? -30) - 12);
+    const quiet = f.db < quietDb();
     const loud = smoothDb > LOUD_DB;
     if (loud) { loudSince ||= now; avgDb = avgDb == null ? smoothDb : avgDb * 0.995 + smoothDb * 0.005; }
     else loudSince = 0;
@@ -298,15 +303,54 @@ module.exports = tg => {
       else if (now - seg.endTime > 30000) segClose();   // the end of the side
     } else if (gap) segClose();   // the next track came and went without a name
   }
+  // What happened to the last track's recording, for the card: { title, artist, outcome, at }.
+  let lastLearn = null;
+  const noteLearn = (label, outcome) => { lastLearn = { title: label?.title || null, artist: label?.artist || null, outcome, at: Date.now() }; };
+  const segJoin = g => {
+    const all = new Int16Array(g.n);
+    let at = 0;
+    for (const c of g.chunks) { all.set(c, at); at += c.length; }
+    return all;
+  };
   // The track has ended (or listening stopped): learn it, if it has a name.
   function segClose() {
     const g = seg;
     seg = null;
-    if (!g || !g.label || g.mixed) return;
-    const all = new Int16Array(g.n);
-    let at = 0;
-    for (const c of g.chunks) { all.set(c, at); at += c.length; }
-    prints.learn(all.subarray(0, g.endAt ?? g.n), g.label);
+    if (!g) return;
+    if (!g.label) { if (g.n > prints.RATE * 30) noteLearn(null, 'not learned: it was never named'); return; }
+    if (g.mixed) {
+      noteLearn(g.label, g.noGap != null ? `not learned: no gap was heard before the next song (the quietest moment was ${g.noGap} dB)`
+        : 'not learned: it was named as two different songs with no gap between');
+      return;
+    }
+    const cut = g.cutDb != null ? ` · no gap was heard, so it was split at the quietest moment (${g.cutDb} dB)` : '';
+    prints.learn(segJoin(g).subarray(0, g.endAt ?? g.n), g.label).then(outcome => noteLearn(g.label, outcome + cut));
+  }
+  // A chosen side moved on to its next track by the clock, with no gap heard (an older record's surface noise
+  // can hide it). The gap must be in the last 45 s, so the recording is split at the quietest moment there,
+  // if it's clearly quieter than the rest, and the track before it can still be learned.
+  function segCutQuiet() {
+    if (!seg || !seg.label || seg.mixed || seg.endAt != null) return;
+    const R = prints.RATE, BLOCK = Math.round(R / 4), all = segJoin(seg);
+    const from = Math.max(0, all.length - 45 * R), to = all.length - 3 * R;
+    if (to - from < 10 * R) return;
+    const e = [];
+    for (let b = from; b + BLOCK <= to; b += BLOCK) {
+      let sum = 0;
+      for (let i = b; i < b + BLOCK; i++) sum += all[i] * all[i];
+      e.push(sum / BLOCK);
+    }
+    const db = ms => Math.round(10 * Math.log10(ms / (32768 * 32768) + 1e-12));
+    let best = 0, bestE = Infinity;
+    for (let i = 0; i + 3 <= e.length; i++) { const w = (e[i] + e[i + 1] + e[i + 2]) / 3; if (w < bestE) { bestE = w; best = i; } }
+    const median = [...e].sort((a, b) => a - b)[e.length >> 1], quietest = db(bestE);
+    if (db(median) - quietest < 10) { seg.mixed = true; seg.noGap = quietest; return; }
+    const cut = from + (best + 1.5) * BLOCK | 0;
+    const g = { ...seg, chunks: [all.subarray(0, cut)], n: cut, endAt: null, cutDb: quietest };
+    seg = { chunks: [all.slice(cut)], n: all.length - cut, label: null, mixed: false, endAt: null, endTime: 0, resumed: null };
+    const keep = seg;
+    seg = g; segClose();
+    seg = keep;
   }
   // t: what the sound playing now was just identified as. fix: it corrects the name given before.
   function segLabel(t, fix) {
@@ -393,6 +437,7 @@ module.exports = tg => {
         const res = cueTake(recheck);
         if (res === 'stay') { track.checkAt = Date.now() + 60000; phase = 'playing'; return; }
         if (res) {
+          if (recheck) segCutQuiet();   // (no gap was heard: find it, so the track before can be learned)
           if (raw) lastClip = { wav: raw, at: Date.now(), outcome: `not in your own recordings · named from the record you chose: ${res.title}`, cleaned: false, speedFixed: null };
           misses = 0;
           matched(res).catch(e => tg.log('Saving the match failed:', e.message));
@@ -607,7 +652,7 @@ module.exports = tg => {
     provider: s.provider, auddSet: SERVICES.audd.ready(), acrSet: SERVICES.acr.ready(), acrHost: s.acr.host,
     hasToken: chosen().length > 0 || canGo(),   // a service can be used, or there are learned tracks or a chosen side
     cue: cue && { id: cue.id, album: cue.album, artist: cue.artist, side: cue.side, index: cue.index, tracks: cue.tracks.map(t => ({ pos: t.pos, title: t.title, dur: t.dur })) },
-    learn: prints.state(),
+    learn: { ...prints.state(), last: lastLearn, musicDb: avgDb == null ? null : Math.round(avgDb), gapDb: Math.round(quietDb()) },
     stylus: { on: s.stylus.on, hours: Math.round(s.stylus.ms / 360000) / 10, since: s.stylus.since, limit: s.stylus.limit, counting: !!stopStylus, direct: direct() },
     used: used(), cap: s.cap, acrUsed: acrUsed(), acrCap: s.acrCap,
     autoOffMin: s.autoOffMin, autoShow: s.autoShow, cleanClip: s.cleanClip, clipSec: s.clipSec, rpm: s.rpm,
