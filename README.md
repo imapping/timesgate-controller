@@ -364,6 +364,7 @@ add a mode to `/boot/firmware/cmdline.txt`, e.g. `video=HDMI-A-1:1024x600@60`, a
 If touch doesn't work: many screens have two USB sockets, one for power only and one marked **Touch**.
 Connect the Touch one to the Pi with a data cable (not a charge-only one). `grep Name /proc/bus/input/devices`
 lists what the Pi sees: plugging the right socket in adds a line (often a maker's name, not the word "touch").
+The XC9026's touch panel, for example, shows as `wch.cn USB2IIC_CTP_CONTROL` (CTP: capacitive touch panel).
 A 3D-printable case for the 7" Duinotech XC9026 screen, with a stand and keyholes for a wall, is in
 [`hardware/screen-case`](hardware/screen-case).
 
