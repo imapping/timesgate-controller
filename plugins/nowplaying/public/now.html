@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Now Playing</title>
 <!-- Full-screen "what's playing" for a separate display. Add ?kiosk to hide the mouse pointer (a touch screen),
-     ?dim=<minutes> and ?dark=<minutes> to change when it dims and goes black with nothing playing (0: never). -->
+     ?dim=<minutes> to change when it dims with nothing playing, and ?dark=<minutes> to have it go black too (0: never, the default). -->
 <style>
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -167,10 +167,11 @@
     tick();
   }
 
-  // Dimming: after ?dim= minutes with nothing playing (default 2) the screen dims, and after ?dark=
-  // minutes (default 30) it goes black. 0 turns either off. Music starting, or a touch, brings it back.
+  // Dimming: after ?dim= minutes with nothing playing (default 2) the screen dims, staying a clock. With
+  // ?dark= minutes it goes black after that long (by default never). 0 turns either off. Music starting,
+  // or a touch, brings it back.
   const minutes = (name, def) => { const v = Number(params.get(name)); return params.has(name) && v >= 0 ? v : def; };
-  const DIM = minutes('dim', 2), DARK = minutes('dark', 30);
+  const DIM = minutes('dim', 2), DARK = minutes('dark', 0);
   let quietSince = Date.now(), swallow = false;
   function dim() {
     const busy = d && d.source && (d.playing || d.source === 'vinyl');   // (Vinyl listening counts, even between tracks)
