@@ -54,6 +54,12 @@ rainbow edge light when one goes down. A small health page goes on each server (
 
 ![Servers: 2 of 4 up, two down (connection refused, key refused), and two with full disks and a failed database](docs/screenshots/screens-servers.png)
 
+**3D printer:** a Bambu Lab printer's progress, read straight from the printer on your network: percent done,
+time left and when it'll be done, the layer, temperatures and the filament in use, with the rainbow edge light
+when a print finishes or fails. The printer stays in its normal mode, so Bambu's app and cloud keep working.
+
+![3D printer: printing 57%, 1:22 left and done at 10:45 pm, layer 137 of 240, nozzle and bed heating, and the AMS slots with the one in use outlined](docs/screenshots/screens-printer.png)
+
 **Music visualizer:** dances in time with the beat it hears through the microphone.
 
 ![Music visualizer bars](docs/screenshots/screens-visualizer.png)
@@ -222,6 +228,8 @@ all work without setup except:
   fine-grained token with **Administration: Read-only** (see the plugin's Read me).
 - **Mowing:** create an API key on Mowing Tracker's Setup page and paste it into the Mowing card from the
   computer running the controller.
+- **3D printer:** from the printer's screen, note its IP address, LAN access code (Settings → network) and
+  serial number, and enter them in the 3D printer card from the computer running the controller.
 - **Servers:** put `plugins/servers/iis/health.ashx` on each IIS server with a `HealthKey` in its web.config (see the
   plugin's Read me), then add each server and its key in the Servers card from the computer running the controller.
 - **Claude status:** tell [Claude Code](https://claude.com/claude-code) to send its events to the
@@ -395,6 +403,7 @@ Some plugins use online services. Each user sets up their own account or key; no
 - **Baseball (MLB):** uses MLB's public stats feed (statsapi.mlb.com), no key needed; its data is for personal, non-commercial use.
 - **Mowing:** uses [Mowing Tracker](https://www.mowingtracker.com)'s read-only status API with your own API key.
 - **Servers:** talks only to your own servers' health pages.
+- **3D printer:** reads your Bambu Lab printer's status reports on your own network, with its access code. Nothing goes through Bambu's cloud.
 - **Divoom cloud:** used only to find Times Gates on your network, and to list clock faces.
 
 Every song Vinyl identifies, and every song you play on Spotify (once it has played for 30 seconds),
@@ -408,7 +417,7 @@ excluded from git.
 ## Disclaimer
 
 This is an unofficial project, not affiliated with or endorsed by Divoom, Spotify, AudD,
-ACRCloud, Discogs, MLB or Anthropic. Divoom and Times Gate are trademarks of Divoom; Spotify is a trademark of Spotify AB;
+ACRCloud, Discogs, MLB, Bambu Lab or Anthropic. Divoom and Times Gate are trademarks of Divoom; Spotify is a trademark of Spotify AB;
 Claude is a trademark of Anthropic.
 
 ## License

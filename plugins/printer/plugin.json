@@ -1,0 +1,11 @@
+{
+  "id": "printer",
+  "name": "3D printer",
+  "version": "1.0.0",
+  "description": "A Bambu Lab printer's progress, read straight from the printer on your network: percent done, time left, the layer, temperatures and the filament in use. Lights up the edge when a print finishes or fails.",
+  "author": "TimesGate",
+  "order": 52,
+  "panel": "panel.html",
+  "scripts": ["render.js", "panel.js"],
+  "liveLabel": "Keep it updated (as the printer reports)"
+}
