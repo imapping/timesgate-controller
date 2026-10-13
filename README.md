@@ -58,7 +58,7 @@ rainbow edge light when one goes down. A small health page goes on each server (
 time left and when it'll be done, the layer, temperatures and the filament in use, with the rainbow edge light
 when a print finishes or fails. The printer stays in its normal mode, so Bambu's app and cloud keep working.
 
-![3D printer: printing 57%, 1:22 left and done at 10:45 pm, layer 137 of 240, nozzle and bed heating, and the AMS slots with the one in use outlined](docs/screenshots/screens-printer.png)
+![3D printer on a Bambu Lab P2S: printing 6%, 8:24 left and done at 5:43 pm, layer 1 of 150, the nozzle and bed at temperature, and the AMS with the black PLA in use outlined](docs/screenshots/screens-printer.png)
 
 **Music visualizer:** dances in time with the beat it hears through the microphone.
 
