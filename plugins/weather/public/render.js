@@ -1,5 +1,6 @@
 // Draws the weather screens from an Open-Meteo forecast. Shared by the page (previews) and the
-// server (engine.js). Screen 1 shows current conditions; screens 2-5 today + the next 3 days.
+// server (engine.js). Screen 1 shows current conditions, screen 2 the rain radar (radar.js), and
+// screens 3-5 today and the next 2 days.
 // Icons are animated as short loops. Needs a global makeCanvas(w, h).
 
 const WX_FRAMES = 8, WX_SPEED = 180;
@@ -140,14 +141,45 @@ function drawDay(c, d, i, t) {
   c.fillStyle = '#5cb8ff'; c.beginPath(); c.moveTo(48, 108); c.quadraticCurveTo(43, 116, 48, 119); c.quadraticCurveTo(53, 116, 48, 108); c.fill();
   wxText(c, (rain ?? 0) + '%', 56, 119, 13, '#bfe2ff', '600', 'left');
 }
-// frames[screen][frame] → 128x128 canvas
-function renderWeather(d, placeName) {
-  return [0, 1, 2, 3, 4].map(s => Array.from({ length: WX_FRAMES }, (_, f) => {
-    const cv = makeCanvas(128, 128);
-    const c = cv.getContext('2d'), t = f / WX_FRAMES;
-    s === 0 ? drawNow(c, d, placeName, t) : drawDay(c, d, s - 1, t);
-    return cv;
-  }));
+// The rain radar: the land and sea, one radar frame, the place (a ring in the middle), the frame's time
+// and how far through the loop it is. radar: { map, frames: [{ time, layer }] } (canvases or images).
+function drawRadar(c, radar, i, tz) {
+  c.fillStyle = '#05080b'; c.fillRect(0, 0, 128, 128);
+  if (radar && radar.map) c.drawImage(radar.map, 0, 0);
+  const frames = (radar && radar.frames) || [], f = frames[i];
+  if (f && f.layer) c.drawImage(f.layer, 0, 0);
+  c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.7)'; c.beginPath(); c.arc(64, 64, 4, 0, Math.PI * 2); c.stroke();
+  c.lineWidth = 1.5; c.strokeStyle = '#fff'; c.beginPath(); c.arc(64, 64, 4, 0, Math.PI * 2); c.stroke();
+  const label = (s, x, y, align) => {
+    c.font = '700 10px system-ui, "Segoe UI", sans-serif'; c.textAlign = align; c.textBaseline = 'alphabetic';
+    c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.85)'; c.strokeText(s, x, y); c.fillStyle = '#e8eef4'; c.fillText(s, x, y);
+  };
+  label('RADAR', 4, 12, 'left');
+  if (!f) { label(radar && radar.error ? 'unavailable' : 'loading…', 64, 100, 'center'); return; }
+  let when = '';
+  try { when = new Date(f.time).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit', timeZone: tz && tz !== 'auto' ? tz : undefined }); }
+  catch { when = new Date(f.time).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }); }
+  label(when, 124, 120, 'right');
+  c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 125, 128, 3);
+  c.fillStyle = '#5cb8ff'; c.fillRect(0, 125, Math.round(128 * (i + 1) / frames.length), 3);
+}
+// Which radar frame each animation frame shows: each held a little, the latest held longest.
+function radarOrder(n) {
+  const out = [];
+  for (let i = 0; i < n - 1; i++) out.push(i, i, i);
+  if (n) for (let k = 0; k < 8; k++) out.push(n - 1);
+  return out.length ? out : [0];
+}
+
+// frames[screen][frame] → 128x128 canvas. Screen 1: now · 2: the rain radar · 3–5: today and the next two days.
+function renderWeather(d, placeName, radar, tz) {
+  const draw = fn => { const cv = makeCanvas(128, 128); fn(cv.getContext('2d')); return cv; };
+  const icons = fn => Array.from({ length: WX_FRAMES }, (_, f) => draw(c => fn(c, f / WX_FRAMES)));
+  return [
+    icons((c, t) => drawNow(c, d, placeName, t)),
+    radarOrder((radar && radar.frames || []).length).map(i => draw(c => drawRadar(c, radar, i, tz))),
+    ...[0, 1, 2].map(day => icons((c, t) => drawDay(c, d, day, t))),
+  ];
 }
 
 if (typeof module === 'object') module.exports = { WX_SPEED, weatherUrl, renderWeather, wxInfo, compass };

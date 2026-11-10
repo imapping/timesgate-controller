@@ -26,11 +26,21 @@
     try { await fetchWeather(); } catch (e) { log('Weather: ' + e.message, 'e'); p.info('Could not load weather.'); }
   }
 
+  // The radar from the controller (it keeps the map and frames), as images to draw.
+  const image = src => new Promise(res => { if (!src) return res(null); const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+  async function radar() {
+    try {
+      const r = await p.api('radar');
+      const [map, ...layers] = await Promise.all([image(r.map), ...r.frames.map(f => image(f.layer))]);
+      return { map, frames: r.frames.map((f, i) => ({ time: f.time, layer: layers[i] })), error: r.error };
+    } catch (e) { return { frames: [], error: e.message }; }
+  }
+
   // Preview always fetches fresh data (it's quick and free).
   p.preview = async () => {
     if (!place) return null;
-    await refresh();
-    return data && { speed: WX_SPEED, parts: renderWeather(data, place.name).map((frames, i) => ({ key: i, jobs: [{ screen: i, frames }] })) };
+    const [rd] = await Promise.all([radar(), refresh()]);
+    return data && { speed: WX_SPEED, parts: renderWeather(data, place.name, rd, place.tz).map((frames, i) => ({ key: i, jobs: [{ screen: i, frames }] })) };
   };
 
   async function searchPlace() {

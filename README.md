@@ -23,7 +23,7 @@ working with the page closed.
 
 The five screens as the page previews them. **Weather:**
 
-![Weather: current conditions and a 4-day forecast](docs/screenshots/screens-weather.png)
+![Weather: current conditions, the rain radar looping over the last two hours, and the forecast for today and the next two days](docs/screenshots/screens-weather.png)
 
 **Claude status:** your turn / working, and session and weekly usage.
 
@@ -389,7 +389,9 @@ start. [CLAUDE.md](CLAUDE.md) describes the architecture.
 Some plugins use online services. Each user sets up their own account or key; none are included.
 
 - **Weather:** data by [Open-Meteo.com](https://open-meteo.com/), licensed CC BY 4.0. The free API
-  is for non-commercial use.
+  is for non-commercial use. Rain radar by [RainViewer](https://www.rainviewer.com/) (free for personal
+  use), over a map made from [OpenStreetMap](https://www.openstreetmap.org/copyright) data
+  (© OpenStreetMap contributors), whose few tiles are fetched once per place and kept.
 - **Spotify:** needs your own Client ID from the
   [Spotify developer dashboard](https://developer.spotify.com/dashboard). Use is subject to
   Spotify's developer terms.
