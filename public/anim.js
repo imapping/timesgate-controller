@@ -20,7 +20,7 @@ async function sendScreens(jobs, speed, progress = () => {}) {
     const ids = {};
     for (const j of jobs) ids[j.screen] = await nextPicId();
     const packet = (j, f) => ({ Command: 'Draw/SendHttpGif', LcdArray: mask([j.screen]), PicNum: j.frames.length,
-      PicWidth: 128, PicOffset: f, PicID: ids[j.screen], PicSpeed: speed, PicData: tileJpeg(j.frames[f], j.x || 0) });
+      PicWidth: 128, PicOffset: f, PicID: ids[j.screen], PicSpeed: j.speed || speed, PicData: tileJpeg(j.frames[f], j.x || 0) });
 
     if (mode === 'batch') {
       let failed = false;
@@ -49,19 +49,22 @@ async function sendScreens(jobs, speed, progress = () => {}) {
 }
 
 // ---------- on-page tile animation (one animator shared by every feature) ----------
+// A job with its own speed runs at that speed; the others at the shared one.
 let tileTimer = null;
 function playTiles(jobs, speed) {
   stopTiles();
-  let k = 0;
+  const start = Date.now(), shown = new Map();
   const show = () => {
+    const t = Date.now() - start;
     for (const j of jobs) {
-      const fr = j.frames[k % j.frames.length];
-      previews[j.screen].getContext('2d').drawImage(fr, j.x || 0, 0, 128, 128, 0, 0, 128, 128);
+      const k = Math.floor(t / (j.speed || speed)) % j.frames.length;
+      if (shown.get(j) === k) continue;
+      shown.set(j, k);
+      previews[j.screen].getContext('2d').drawImage(j.frames[k], j.x || 0, 0, 128, 128, 0, 0, 128, 128);
     }
-    k++;
   };
   show();
-  if (Math.max(...jobs.map(j => j.frames.length)) > 1) tileTimer = setInterval(show, speed);
+  if (Math.max(...jobs.map(j => j.frames.length)) > 1) tileTimer = setInterval(show, Math.max(20, Math.min(speed, ...jobs.map(j => j.speed || speed)) / 2));
 }
 function stopTiles() { clearInterval(tileTimer); tileTimer = null; }
 

@@ -163,11 +163,13 @@ function drawRadar(c, radar, i, tz) {
   c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 125, 128, 3);
   c.fillStyle = '#5cb8ff'; c.fillRect(0, 125, Math.round(128 * (i + 1) / frames.length), 3);
 }
-// Which radar frame each animation frame shows: each held a while (longer when there are few), the
-// latest longest, within the Times Gate's 40 frames a loop.
+// The radar screen runs at its own, slower speed (ms per frame) beside the icons' WX_SPEED.
+// Which radar picture each animation frame shows: each picture for about 2.5 s (less when there are
+// many), the latest for 4 s, within the Times Gate's 40 frames a loop.
+const RADAR_SPEED = 500;
 function radarOrder(n) {
   if (n <= 1) return [0];
-  const hold = Math.min(8, Math.floor(32 / (n - 1))), out = [];
+  const hold = Math.min(5, Math.floor(32 / (n - 1))), out = [];
   for (let i = 0; i < n - 1; i++) for (let k = 0; k < hold; k++) out.push(i);
   for (let k = 0; k < 8; k++) out.push(n - 1);
   return out;
@@ -184,4 +186,7 @@ function renderWeather(d, placeName, radar, tz) {
   ];
 }
 
-if (typeof module === 'object') module.exports = { WX_SPEED, weatherUrl, renderWeather, wxInfo, compass };
+// Jobs for render() and the page's previews: the radar (screen 2) at its own speed.
+const wxJobs = screens => screens.map((frames, i) => ({ screen: i, frames, ...(i === 1 ? { speed: RADAR_SPEED } : {}) }));
+
+if (typeof module === 'object') module.exports = { WX_SPEED, RADAR_SPEED, weatherUrl, renderWeather, wxJobs, wxInfo, compass };

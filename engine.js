@@ -108,13 +108,14 @@ class Unit {
   }
   resetPicId() { this.rt.picId = null; }
 
-  // Upload per-screen frame loops. jobs: [{ screen, frames: [canvas], x? }]. One Draw/CommandList per
-  // frame carrying every screen, so the screens start together; a single screen is sent directly.
+  // Upload per-screen frame loops. jobs: [{ screen, frames: [canvas], x?, speed? }] (a job's own speed
+  // overrides the shared one). One Draw/CommandList per frame carrying every screen, so the screens start
+  // together; a single screen is sent directly.
   async sendScreens(jobs, speed) {
     const ids = {};
     for (const j of jobs) ids[j.screen] = await this.nextPicId();
     const packet = (j, f) => ({ Command: 'Draw/SendHttpGif', LcdArray: [0, 1, 2, 3, 4].map(i => i === j.screen ? 1 : 0),
-      PicNum: j.frames.length, PicWidth: 128, PicOffset: f, PicID: ids[j.screen], PicSpeed: speed, PicData: tileJpeg(j.frames[f], j.x) });
+      PicNum: j.frames.length, PicWidth: 128, PicOffset: f, PicID: ids[j.screen], PicSpeed: j.speed || speed, PicData: tileJpeg(j.frames[f], j.x) });
     const N = Math.max(...jobs.map(j => j.frames.length));
     for (let f = 0; f < N; f++) {
       const now = jobs.filter(j => f < j.frames.length);

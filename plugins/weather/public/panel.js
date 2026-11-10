@@ -40,7 +40,7 @@
   p.preview = async () => {
     if (!place) return null;
     const [rd] = await Promise.all([radar(), refresh()]);
-    return data && { speed: WX_SPEED, parts: renderWeather(data, place.name, rd, place.tz).map((frames, i) => ({ key: i, jobs: [{ screen: i, frames }] })) };
+    return data && { speed: WX_SPEED, parts: wxJobs(renderWeather(data, place.name, rd, place.tz)).map((job, i) => ({ key: i, jobs: [job] })) };
   };
 
   async function searchPlace() {

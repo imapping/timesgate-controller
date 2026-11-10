@@ -105,6 +105,8 @@ module.exports = tg => ({
 - `x` (optional) is where this screen's 128-pixel tile starts in the frame, so one wide canvas can
   span several screens: a 256×128 canvas with jobs `{screen: 1, x: 0}` and `{screen: 2, x: 128}`
   shows across screens 2–3. Spotify's song title does this.
+- `speed` (optional, on a job) gives that screen its own ms per frame, e.g. a slow loop beside fast
+  animated icons. Weather's radar does this.
 - `key` is how updates stay fast: when kept updated, only parts whose key changed are re-sent.
   Put whatever the picture depends on in it, such as the song id or the forecast time.
 - Throw an `Error` if there's nothing to show (e.g. not set up). The page shows the message.
