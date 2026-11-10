@@ -135,7 +135,11 @@ module.exports = tg => {
       const keep = new Set(past.map(f => f.path + '|' + placeKey));
       for (const k of layers.keys()) if (!keep.has(k)) layers.delete(k);
       frames = next; error = '';
-    } catch (e) { error = e.message; tg.log('Radar:', e.message); }
+    } catch (e) {
+      // (fetch's own message is just "fetch failed": the reason is in its cause)
+      error = e.cause ? `${e.message} (${e.cause.code || e.cause.message})` : e.message;
+      tg.log('Radar:', error);
+    }
     checkedAt = Date.now();
   }
 

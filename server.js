@@ -7,6 +7,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+// Node tries each of a server's addresses (IPv4, IPv6) for only 250 ms by default (Node 20), too short
+// for servers on the other side of the world from New Zealand: a Pi without IPv6 then gives up on them
+// (e.g. RainViewer, in Germany, about 300 ms away). Each try gets 2 s instead.
+require('net').setDefaultAutoSelectFamilyAttemptTimeout?.(2000);
 const engine = require('./engine');
 const plugins = require('./plugin-host');
 const mic = require('./mic');
