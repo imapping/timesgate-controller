@@ -25,6 +25,11 @@ The five screens as the page previews them. **Weather:**
 
 ![Weather: current conditions, the rain radar looping over the last two hours, and the forecast for today and the next two days](docs/screenshots/screens-weather.png)
 
+The rain radar (screen 2) loops through the last two hours, here three hourly pictures around Warkworth
+(enlarged): light rain in dim teal, heavier in blue, the heaviest in yellow, over the land and sea.
+
+![The rain radar's three pictures at 3:40, 4:20 and 5:20 pm: showers off the coast, then a band of rain arriving from the north](docs/screenshots/screens-radar.png)
+
 **Claude status:** your turn / working, and session and weekly usage.
 
 ![Claude status on the five screens](docs/screenshots/screens-claude.png)
