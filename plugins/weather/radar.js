@@ -1,9 +1,11 @@
-// Rain radar for the Weather plugin: the last two hours (10-minute frames) from RainViewer, free for
+// Rain radar for the Weather plugin: the last two hours (10-minute frames, or hourly where the country's
+// radar reaches RainViewer only hourly, as New Zealand's does) from RainViewer, free for
 // personal use with a credit, over a land and sea map made from OpenStreetMap tiles. The map's tiles
 // are fetched once per place and kept in data/weather-radar/; radar frames are kept while they're
 // in the last two hours, so each update fetches only the newest frame.
 // One 128x128 view at zoom 7 (RainViewer's most detailed: about 125 km across in New Zealand),
 // centred on the place.
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -35,15 +37,16 @@ module.exports = tg => {
   }
   // Tiles drawn into one 128x128 canvas → its pixels.
   async function compose(c0, urlOf, cacheFile) {
-    const cv = tg.makeCanvas(SIZE, SIZE), g = cv.getContext('2d');
+    const cv = tg.makeCanvas(SIZE, SIZE), g = cv.getContext('2d'), sig = crypto.createHash('sha1');
     for (const [tx, ty] of tiles(c0)) {
       const file = cacheFile && cacheFile(tx, ty);
       let buf;
       if (file && fs.existsSync(file)) buf = fs.readFileSync(file);
       else { buf = await download(urlOf(tx, ty)); if (file) fs.writeFileSync(file, buf); }
+      sig.update(buf);
       g.drawImage(await tg.loadImage(buf), tx * 256 - c0[0], ty * 256 - c0[1]);
     }
-    return { cv, g, img: g.getImageData(0, 0, SIZE, SIZE) };
+    return { cv, g, img: g.getImageData(0, 0, SIZE, SIZE), sig: sig.digest('hex') };
   }
 
   // The land and sea under the radar, from OpenStreetMap's own colours (its water is a pale blue),
@@ -111,7 +114,7 @@ module.exports = tg => {
   async function radarLayer(host, framePath, place) {
     const key = framePath + '|' + placeKey;
     if (layers.has(key)) return layers.get(key);
-    const { cv, g, img } = await compose(corner(place), (x, y) => `${host}${framePath}/256/${ZOOM}/${x}/${y}/2/1_1.png`);
+    const { cv, g, img, sig } = await compose(corner(place), (x, y) => `${host}${framePath}/256/${ZOOM}/${x}/${y}/2/1_1.png`);
     const p = img.data;
     for (let i = 0; i < p.length; i += 4) {
       const r = p[i], gr = p[i + 1], b = p[i + 2];
@@ -119,8 +122,9 @@ module.exports = tg => {
       p[i + 3] = keep ? 255 : 0;
     }
     g.putImageData(img, 0, 0);
-    layers.set(key, cv);
-    return cv;
+    const layer = { cv, sig };
+    layers.set(key, layer);
+    return layer;
   }
 
   async function refresh(place) {
@@ -129,9 +133,13 @@ module.exports = tg => {
       const r = await fetch('https://api.rainviewer.com/public/weather-maps.json', { headers: UA, signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error('RainViewer returned ' + r.status);
       const meta = await r.json(), past = meta.radar?.past || [];
-      const next = [];
+      const all = [];
       for (let i = 0; i < past.length; i += 4)   // a few at a time (RainViewer asks for at most 100 requests a minute)
-        next.push(...await Promise.all(past.slice(i, i + 4).map(async f => ({ time: f.time * 1000, layer: await radarLayer(meta.host, f.path, place) }))));
+        all.push(...await Promise.all(past.slice(i, i + 4).map(async f => ({ time: f.time * 1000, ...await radarLayer(meta.host, f.path, place) }))));
+      // Some countries' radar (New Zealand's included) reaches RainViewer only hourly, and the 10-minute
+      // frames in between repeat it: each picture is kept once, with the time it first appeared.
+      const next = [];
+      for (const f of all) if (!next.length || next.at(-1).sig !== f.sig) next.push({ time: f.time, layer: f.cv, sig: f.sig });
       const keep = new Set(past.map(f => f.path + '|' + placeKey));
       for (const k of layers.keys()) if (!keep.has(k)) layers.delete(k);
       frames = next; error = '';

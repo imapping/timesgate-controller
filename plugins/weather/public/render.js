@@ -163,12 +163,14 @@ function drawRadar(c, radar, i, tz) {
   c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 125, 128, 3);
   c.fillStyle = '#5cb8ff'; c.fillRect(0, 125, Math.round(128 * (i + 1) / frames.length), 3);
 }
-// Which radar frame each animation frame shows: each held a little, the latest held longest.
+// Which radar frame each animation frame shows: each held a while (longer when there are few), the
+// latest longest, within the Times Gate's 40 frames a loop.
 function radarOrder(n) {
-  const out = [];
-  for (let i = 0; i < n - 1; i++) out.push(i, i, i);
-  if (n) for (let k = 0; k < 8; k++) out.push(n - 1);
-  return out.length ? out : [0];
+  if (n <= 1) return [0];
+  const hold = Math.min(8, Math.floor(32 / (n - 1))), out = [];
+  for (let i = 0; i < n - 1; i++) for (let k = 0; k < hold; k++) out.push(i);
+  for (let k = 0; k < 8; k++) out.push(n - 1);
+  return out;
 }
 
 // frames[screen][frame] → 128x128 canvas. Screen 1: now · 2: the rain radar · 3–5: today and the next two days.

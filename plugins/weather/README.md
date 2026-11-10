@@ -1,8 +1,10 @@
 # Weather
 
 - **Screen 1:** current conditions.
-- **Screen 2:** the rain radar for the last two hours, looping (10-minute frames, the latest held
-  longest), about 125 km across with your place in the ring, and the time of each frame.
+- **Screen 2:** the rain radar for the last two hours, looping (the latest held longest), about 125 km
+  across with your place in the ring, and the time of each picture. RainViewer has 10-minute frames,
+  but New Zealand's radar reaches it only hourly, so there it's about three pictures an hour apart
+  (repeats are left out).
 - **Screens 3–5:** the forecast for today and the next two days.
 
 The forecast is from Open-Meteo, free and with no key. The icons are animated. When kept updated, the
