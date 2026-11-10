@@ -11,7 +11,7 @@ const path = require('path');
 
 const ZOOM = 7, SIZE = 128, FRESH_MS = 10 * 60 * 1000;
 const UA = { 'User-Agent': 'TimesGate-controller (github.com/imapping/timesgate-controller)' };
-const SEA = [5, 8, 11], LAND = [43, 49, 56], COAST = [89, 99, 110];
+const SEA = [5, 8, 11], LAND = [43, 49, 56], COAST = [89, 99, 110], LIGHT = [40, 120, 135];
 
 module.exports = tg => {
   const dir = path.join(tg.dir, '..', '..', 'data', 'weather-radar');
@@ -110,16 +110,18 @@ module.exports = tg => {
   }
 
   // One radar frame for the view, in RainViewer's blues (light to heavy), then yellow to red for the
-  // heaviest. Its pale beige haze (drizzle, or radar noise) is left out: it would cover most of the map.
+  // heaviest. Its lightest band (drizzle, very light rain: pale beige) is drawn in dim teal so the map
+  // still shows through, and its faint fringe is left out.
   async function radarLayer(host, framePath, place) {
     const key = framePath + '|' + placeKey;
     if (layers.has(key)) return layers.get(key);
     const { cv, g, img, sig } = await compose(corner(place), (x, y) => `${host}${framePath}/256/${ZOOM}/${x}/${y}/2/1_1.png`);
     const p = img.data;
     for (let i = 0; i < p.length; i += 4) {
-      const r = p[i], gr = p[i + 1], b = p[i + 2];
-      const keep = p[i + 3] > 120 && (b > r + 40 || (r > 200 && b < 120));
-      p[i + 3] = keep ? 255 : 0;
+      const r = p[i], b = p[i + 2], a = p[i + 3];
+      if (a > 120 && (b > r + 40 || (r > 200 && b < 120))) p[i + 3] = 255;   // rain: as RainViewer colours it
+      else if (a >= 128) { p[i] = LIGHT[0]; p[i + 1] = LIGHT[1]; p[i + 2] = LIGHT[2]; p[i + 3] = 210; }   // light rain, in dim teal
+      else p[i + 3] = 0;   // the faint fringe around it
     }
     g.putImageData(img, 0, 0);
     const layer = { cv, sig };

@@ -12,8 +12,9 @@ forecast refreshes every 30 minutes and the radar every 10. Choose the place wit
 saved in `data/weather.json`.
 
 The radar is RainViewer's, at its most detailed zoom (7). It shows only where rain has been (RainViewer
-stopped its forecast in 2026), in blues from light to heavy, then yellow to red for the heaviest; its
-faint haze of drizzle is left out so the map stays readable. The map under it is land and sea made from
+stopped its forecast in 2026): drizzle and very light rain in dim teal, then blues from light to
+heavy, then yellow to red for the heaviest. Only the faint fringe around the light rain is left out,
+so the map stays readable. The map under it is land and sea made from
 OpenStreetMap's tiles: the four or so tiles around your place are fetched once and kept in
 `data/weather-radar/`, with the finished map. Radar frames are kept while they're in the last two hours,
 so each update fetches only the newest one.
